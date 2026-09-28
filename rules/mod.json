@@ -1,0 +1,8 @@
+{
+	"name": "rules",
+	"version": "1.0.0",
+	"label": "Disable Units",
+	"description": "Adds two Match Setup options that let the host disable specific units for every player of the match.",
+	"ignoreInCompatibilityChecks": true,
+	"dependencies": ["0ad>=0.27.0"]
+}

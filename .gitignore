@@ -1,0 +1,7 @@
+# Output of the "Build Pyromod" workflow and of manual packaging runs.
+output/
+*.pyromod
+*.pyromod.sha256sum
+
+# Scratch directory
+.dist/
