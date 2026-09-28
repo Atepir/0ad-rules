@@ -7,10 +7,8 @@
  *
  * Re-enabling is done with the "Enable Unit" setting.
  */
-GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSettingControlDropdown
-{
-	constructor(...args)
-	{
+GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSettingControlDropdown {
+	constructor(...args) {
 		super(...args);
 
 		this.banList = getUnitBanList();
@@ -19,15 +17,13 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 		this.render();
 	}
 
-	onHoverChange()
-	{
+	onHoverChange() {
 		const hovered = this.dropdown.hovered;
 		this.dropdown.tooltip =
 			hovered > 0 && this.banList.tooltips[hovered - 1] || this.Tooltip;
 	}
 
-	render()
-	{
+	render() {
 		this.setHidden(!this.banList.names.length);
 
 		const disabled = g_GameSettings.disabledTemplates.templates;
@@ -45,13 +41,11 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 		this.setSelectedValue("");
 	}
 
-	getAutocompleteEntries()
-	{
+	getAutocompleteEntries() {
 		return this.banList.names;
 	}
 
-	onSelectionChange(itemIdx)
-	{
+	onSelectionChange(itemIdx) {
 		// The placeholder, which is selected after every change.
 		if (itemIdx <= 0)
 			return;

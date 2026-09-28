@@ -7,7 +7,8 @@
     1. Dumps the list of shipped unit templates out of binaries/data/mods/public/public.zip.
     2. Runs tools/verify-unitbanlist.js on that dump, which replays the mod's unit grouping
        logic and checks the invariants the GUI and the simulation rely on.
-    3. Syntax-checks every JavaScript file of the mod.
+    3. Runs tools/verify-matchsettingslayout.js, which replays the Match Setup layout repair.
+    4. Syntax-checks every JavaScript file of the mod.
 
 .PARAMETER GameDirectory
     The 0 A.D. installation directory, i.e. the folder containing "binaries".
@@ -46,7 +47,14 @@ if ($LASTEXITCODE -ne 0)
     throw "verify-unitbanlist.js failed."
 }
 
-# 3) Syntax-check the mod.
+# 3) Check the Match Setup layout helper.
+& node (Join-Path $root "tools\verify-matchsettingslayout.js")
+if ($LASTEXITCODE -ne 0)
+{
+    throw "verify-matchsettingslayout.js failed."
+}
+
+# 4) Syntax-check the mod.
 Write-Output ""
 Write-Output "Syntax check:"
 $failed = 0

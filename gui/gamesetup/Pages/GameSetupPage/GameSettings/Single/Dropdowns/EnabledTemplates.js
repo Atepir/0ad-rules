@@ -4,10 +4,8 @@
  * Only the currently disabled units are listed, grouped the same way as in the other setting,
  * so that a unit and all of its ranks is made available again with one click.
  */
-GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown
-{
-	constructor(...args)
-	{
+GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown {
+	constructor(...args) {
 		super(...args);
 
 		this.banList = getUnitBanList();
@@ -16,16 +14,14 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.render();
 	}
 
-	onHoverChange()
-	{
+	onHoverChange() {
 		const group = this.groups[this.dropdown.hovered - 1];
 		this.dropdown.tooltip = group ?
 			sprintf(this.HoverTooltip, { "templates": group.templates.join("\n") }) :
 			this.Tooltip;
 	}
 
-	render()
-	{
+	render() {
 		this.setHidden(!this.banList.names.length);
 
 		const disabled = g_GameSettings.disabledTemplates.templates;
@@ -41,14 +37,12 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.setSelectedValue("");
 	}
 
-	getAutocompleteEntries()
-	{
+	getAutocompleteEntries() {
 		return this.banList.groupTemplates(g_GameSettings.disabledTemplates.templates)
 			.map(group => group.name);
 	}
 
-	onSelectionChange(itemIdx)
-	{
+	onSelectionChange(itemIdx) {
 		// The placeholder, which is selected after every change.
 		if (itemIdx <= 0)
 			return;

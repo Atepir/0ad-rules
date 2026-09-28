@@ -22,6 +22,15 @@ if (-not (Test-Path $ModsDirectory))
     throw "The 0 A.D. mods directory '$ModsDirectory' doesn't exist. Pass -ModsDirectory."
 }
 
+# A release downloaded into the mod folder (mods/rules/rules.zip) would shadow the loose files
+# below, so report it before the mirror removes it.
+$archives = Get-ChildItem $target -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Extension -in @(".zip", ".pyromod") }
+foreach ($archive in $archives)
+{
+    Write-Output "Removing '$($archive.Name)': a copy of the mod inside the mod folder would take precedence over these files."
+}
+
 # Mirror the mod, so that removed files don't stay behind.
 if (Test-Path $target)
 {

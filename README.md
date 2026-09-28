@@ -37,7 +37,7 @@ summary of how many units are disabled.
 | `gui/gamesetup/Pages/GameSetupPage/GameSettings/Single/Dropdowns/UnitBanList.js` | Builds the list of disableable units from `simulation/templates/units/`. |
 | `.../Single/Dropdowns/DisabledTemplates.js` | The "Disable Unit" dropdown. |
 | `.../Single/Dropdowns/EnabledTemplates.js` | The "Enable Unit" dropdown. |
-| `gui/gamesetup/Pages/GameSetupPage/GameSettings/GameSettingsLayout.js` | *Overrides* the vanilla settings layout to add both controls to the "Player" tab. |
+| `.../Single/Dropdowns/MatchSettingsLayout.js` | Adds both controls to the tab that holds the player settings of the *effective* Match Setup layout, and drops settings of it that this game version doesn't have (see [Compatibility](#compatibility)). |
 | `simulation/helpers/InitGame.js` | *Overrides* the vanilla `InitGame` to apply the list with `ICmpPlayer::SetDisabledTemplates`. |
 
 The engine already knows how to enforce a disabled template:
@@ -86,6 +86,11 @@ Copy `mod.json`, `gamesettings/`, `gui/` and `simulation/` - not `tools/`, `.git
 or `README.md`. `deploy.ps1` copies exactly those files and enables the mod in
 `%APPDATA%\0ad\config\user.cfg`; otherwise enable it in **Settings → Mod Selection**.
 
+A release archive placed *inside* the mod folder (`mods/rules/rules.zip`, the layout mod.io uses)
+is a second copy of the mod: it can hide the files next to it. Keep the loose files as they are,
+or install the `.pyromod` in **Settings → Mod Selection**, which unpacks it. `deploy.ps1` reports
+and removes such an archive.
+
 (Renamed from `disabledunits`: remove that folder from the user mods directory and replace
 `disabledunits` with `rules` in `mod.enabledmods`.)
 
@@ -129,14 +134,45 @@ python tools/pyromod.py strip output/rules-1.0.0.pyromod
 python tools/pyromod.py check output/rules-1.0.0.pyromod
 ```
 
-`output/` is git-ignored.
+`output/` is git-ignored. The archive builder needs the `package_mod` mod, which only release
+installs ship (the `0ad-bin-nodata` image the workflow uses has it), so on a development install
+zip the repository with any tool and run the two `tools/pyromod.py` steps on the result - the
+`strip`/`check` file list is the same.
 
 ## Compatibility
 
-The mod only *adds* a game setting and two controls, but it ships modified copies of
-`GameSettingsLayout.js` and `simulation/helpers/InitGame.js`. If another mod overrides the same
-files, the one loaded last wins. `ignoreInCompatibilityChecks` is enabled so that the mod isn't
-disabled by other mods' version checks, but it should be re-checked after a game update.
+The mod adds a game setting and two controls, and it ships one modified copy of a vanilla file:
+`simulation/helpers/InitGame.js`. Another mod that overrides that file wins, and then the list
+isn't applied; nothing else breaks. `ignoreInCompatibilityChecks` is enabled so that the mod
+isn't disabled by other mods' version checks, but it should be re-checked after a game update.
+
+### Why the mod doesn't override `GameSettingsLayout.js`
+
+The Match Setup settings of a tab are listed in `GameSettingsLayout.js`, so adding a setting
+used to mean overriding that vanilla file. Every mod that does it fights over one file: the
+settings of the mod whose copy loses disappear from the Match Setup without any message. Such a
+copy is also fatal when it was written for another game version, because
+`GameSettingsPanel.positionSettings` assumes every listed name is a control that exists. With
+[feldmap](https://wildfiregames.com/forum/topic/53880-feldmap/) 3.0.1 installed for example,
+selecting **Player** throws
+
+```
+ERROR: JavaScript error: gui/gamesetup/Pages/GameSetupPage/Panels/GameSettingsPanel.js line 131
+this.gameSettingControlManager.gameSettingControls[name] is undefined
+```
+
+because its `Player` tab still lists `PopulationCapType`, a control that 0.28 replaced with
+`WorldPopulation` and `WorldPopulationCap`.
+
+This mod therefore doesn't ship that file. `MatchSettingsLayout.js` instead repairs the layout
+that ended up in use right before it is laid out, which works with any copy:
+
+* settings that have no control are dropped, with a warning in the game log,
+* `DisabledTemplates` and `EnabledTemplates` are inserted into the tab that holds the player
+  settings.
+
+On an installation where another mod supplies the layout, the two settings are therefore still
+visible, and a stale layout of that mod no longer breaks tab switching.
 
 ### Why `"dependencies": ["0ad>=0.27.0"]` and not `0.28.0`?
 
@@ -158,6 +194,9 @@ The mod was checked against a 0.28.0 installation:
 * `tools/verify-unitbanlist.js` runs the unit grouping against the dumped template list of the
   shipped `public.zip` and checks every invariant (no duplicate or unreachable templates,
   no rank/packed/trireme variants leaking into the names, 175 entries covering 254 templates).
+* `tools/verify-matchsettingslayout.js` runs `MatchSettingsLayout.js` against the vanilla layout,
+  against the stale `feldmap` layout and against the layout this mod used to ship, and checks that
+  the result never lists a setting that has no control and always contains both settings.
 * A headless `pyrogenesis -autostart="random/mainland" -autostart-nonvisual` run with the mod
   enabled loads the mod, runs the modified `InitGame` and simulates a match without errors.
   Instrumenting `InitGame` temporarily confirmed that the setting reaches every player
@@ -179,6 +218,13 @@ The mod was checked against a 0.28.0 installation:
 
   ```
   node tools/verify-unitbanlist.js <unit-templates.txt>
+  ```
+
+* `tools/verify-matchsettingslayout.js` replays the layout repair, including the feldmap 3.0.1
+  layout that caused the crash above:
+
+  ```
+  node tools/verify-matchsettingslayout.js
   ```
 
 * `tools/verify-workflow.py` parses `.github/workflows/build-pyromod.yml` and checks that the mod
