@@ -6,6 +6,15 @@ The host picks units in the Match Setup; the list is synchronized to every clien
 by the simulation, so disabled units can't be trained (units) or built (structures) by anyone,
 including the AI.
 
+## Repository layout
+
+The **repository root is the mod**: `mod.json`, `gamesettings/`, `gui/` and `simulation/` are the
+files the game loads, everything else (`README.md`, `deploy.ps1`, `tools/`, `.github/`) is
+development tooling. The packaging action in `.github/workflows/build-pyromod.yml` packs the
+directory it is given with paths relative to the working directory, so a mod in a subdirectory
+ends up with every path prefixed by it (`rules/mod.json`) and an archive the game can't load —
+hence the flat layout, and hence the `check` step of the workflow.
+
 ## Usage
 
 1. Host a game (or play a single player match) and open **Match Setup → Player**.
@@ -64,8 +73,8 @@ Hovering an entry shows the exact templates it disables.
 
 ## Install
 
-Copy the `rules` directory (the one containing `mod.json`) into the 0 A.D. user mods
-directory:
+Install a released `rules-<version>.pyromod` in **Settings → Mod Selection**, or copy the mod
+into the 0 A.D. user mods directory:
 
 ```
 Windows: %USERPROFILE%\Documents\My Games\0ad\mods\rules
@@ -73,14 +82,12 @@ macOS:   ~/Library/Application Support/0ad/mods/rules
 Linux:   ~/.local/share/0ad/mods/rules
 ```
 
-Then enable it in **Settings → Mod Selection**, or add it to `mod.enabledmods` in
-`%APPDATA%\0ad\config\user.cfg`.
+Copy `mod.json`, `gamesettings/`, `gui/` and `simulation/` - not `tools/`, `.github/`, `deploy.ps1`
+or `README.md`. `deploy.ps1` copies exactly those files and enables the mod in
+`%APPDATA%\0ad\config\user.cfg`; otherwise enable it in **Settings → Mod Selection**.
 
-`deploy.ps1` copies the mod to the Windows mods directory and enables it.
-
-Note: after the rename from `disabledunits`, the mod folder in the user mods directory has to be
-removed (or overwritten by `deploy.ps1`), and `disabledunits` has to be replaced by `rules` in
-`mod.enabledmods`.
+(Renamed from `disabledunits`: remove that folder from the user mods directory and replace
+`disabledunits` with `rules` in `mod.enabledmods`.)
 
 ## Releases
 
@@ -93,10 +100,16 @@ and publishes it:
 | push to `main`, pull request to `main`, manual run | builds `output/rules-<commit sha>.pyromod` and uploads it as a workflow artifact |
 | push of a `v*` tag | builds `output/rules-<tag without its "v">.pyromod`, writes a `.sha256sum` next to it and creates or updates the GitHub release |
 
-`directory: rules` tells the action which folder to package, so the repository files (`tools/`,
-`deploy.ps1`, `README.md`, `.github/`) never end up inside the `.pyromod`. The tag build also
-rewrites the `version` in `rules/mod.json`, so a released pyromod reports the tag version to the
-game — mod compatibility checks between players compare it.
+The tag build first rewrites the `version` in `mod.json`, so a released pyromod reports the tag
+version to the game - mod compatibility checks between players compare it.
+
+A `.pyromod` is a zip whose root contains `mod.json`. The action packs the whole repository, so
+every build then runs
+
+* `python3 tools/pyromod.py strip` to drop the development files from the archive, and
+* `python3 tools/pyromod.py check` to fail the workflow when the archive does not contain this mod
+  and nothing else. `check` also reports a `mod.json` that is not at the root of the archive, which
+  is exactly what happens when the mod is moved back into a subdirectory.
 
 To cut a release, tag the commit:
 
@@ -105,13 +118,15 @@ git tag v1.1.0
 git push origin v1.1.0
 ```
 
-The same packaging can be reproduced locally (the engine has to be 0.27 or newer):
+The same packaging can be reproduced locally, run from the repository root (the engine has to be
+0.27 or newer):
 
 ```powershell
-# run from the repository root
 & "E:\0ad\0 A.D. alpha\binaries\system\pyrogenesis.exe" `
-  -mod=package_mod -archivebuild=rules `
+  -mod=package_mod -archivebuild=. `
   -archivebuild-output="$PWD\output\rules-1.0.0.pyromod" -archivebuild-compress
+python tools/pyromod.py strip output/rules-1.0.0.pyromod
+python tools/pyromod.py check output/rules-1.0.0.pyromod
 ```
 
 `output/` is git-ignored.
@@ -148,6 +163,10 @@ The mod was checked against a 0.28.0 installation:
   Instrumenting `InitGame` temporarily confirmed that the setting reaches every player
   (`units/{civ}/infantry_spearman_[abe]`, `special/spy`) and that `Player.OnGlobalInitGame` then
   expands `{civ}` per civilization (`units/athen/...`, `units/brit/...`).
+* The packaging pipeline was reproduced locally as well: `pyrogenesis -archivebuild=.` from the
+  repository root writes an archive with `mod.json` at its root, `tools/pyromod.py strip` reduces
+  it to the seven mod files, and `check` accepts that archive while rejecting the `rules/mod.json`
+  layout that broke the first CI run.
 * The Match Setup GUI itself (the two dropdowns) has to be smoke-tested manually, as the
   game setup page can't be driven from the command line.
 
@@ -162,6 +181,8 @@ The mod was checked against a 0.28.0 installation:
   node tools/verify-unitbanlist.js <unit-templates.txt>
   ```
 
-* `tools/verify-workflow.py` parses `.github/workflows/build-pyromod.yml` and checks that the
-  mod name, directory, job conditions and artifact paths still match this repository.
+* `tools/verify-workflow.py` parses `.github/workflows/build-pyromod.yml` and checks that the mod
+  name, the packaging steps, the job conditions and the artifact paths still match this repository.
+* `tools/pyromod.py` is the packaging helper the workflow uses: `strip` removes the repository
+  files from a freshly built pyromod and `check` verifies the result.
 * `deploy.ps1` mirrors the mod into the 0 A.D. mods directory and enables it in `user.cfg`.

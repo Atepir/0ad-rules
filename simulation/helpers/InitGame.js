@@ -2,8 +2,7 @@
  * Called when the map has been loaded, but before the simulation has started.
  * Only called when a new game is started, not when loading a saved game.
  */
-function PreInitGame()
-{
+function PreInitGame() {
 	// We need to replace skirmish "default" entities with real ones.
 	// This needs to happen before AI initialization (in InitGame).
 	// And we need to flush destroyed entities otherwise the AI gets the wrong game state in
@@ -24,26 +23,22 @@ function PreInitGame()
 	cmpRangeManager.ExploreTerritories();
 }
 
-function InitGame(settings)
-{
+function InitGame(settings) {
 	// No settings when loading a map in Atlas, so do nothing
-	if (!settings)
-	{
+	if (!settings) {
 		// Map dependent initialisations of components (i.e. garrisoned units)
 		Engine.BroadcastMessage(MT_InitGame, {});
 		return;
 	}
 
-	if (settings.ExploreMap)
-	{
+	if (settings.ExploreMap) {
 		let cmpRangeManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_RangeManager);
 		for (let i = 1; i < settings.PlayerData.length; ++i)
 			cmpRangeManager.ExploreMap(i);
 	}
 
 	const cmpAIManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIManager);
-	for (let i = 0; i < settings.PlayerData.length; ++i)
-	{
+	for (let i = 0; i < settings.PlayerData.length; ++i) {
 		const cmpPlayer = QueryPlayerIDInterface(i);
 		cmpPlayer.SetCheatsEnabled(!!settings.CheatsEnabled);
 
@@ -51,16 +46,14 @@ function InitGame(settings)
 		// The templates may contain the "{civ}" placeholder, which is expanded for each player
 		// when the MT_InitGame message below is broadcast (see Player.prototype.OnGlobalInitGame).
 		// Templates disabled by other settings (e.g. the spy of "Disable Spies") are preserved.
-		if (settings.DisabledTemplates && settings.DisabledTemplates.length)
-		{
+		if (settings.DisabledTemplates && settings.DisabledTemplates.length) {
 			const disabledTemplates = cmpPlayer.GetDisabledTemplates();
 			const disabled = Object.keys(disabledTemplates).filter(template => disabledTemplates[template]);
 			cmpPlayer.SetDisabledTemplates(disabled.concat(
 				settings.DisabledTemplates.filter(template => disabled.indexOf(template) == -1)));
 		}
 
-		if (settings.PlayerData[i] && !!settings.PlayerData[i].AI)
-		{
+		if (settings.PlayerData[i] && !!settings.PlayerData[i].AI) {
 			cmpAIManager.AddPlayer(settings.PlayerData[i].AI, i, +settings.PlayerData[i].AIDiff, settings.PlayerData[i].AIBehavior || "random");
 			cmpPlayer.SetAI(true);
 		}

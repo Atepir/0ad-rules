@@ -11,10 +11,8 @@
  *
  * Only trainable units of playable civilizations are listed.
  */
-class UnitBanList
-{
-	constructor()
-	{
+class UnitBanList {
+	constructor() {
 		/**
 		 * Directory containing the unit templates.
 		 */
@@ -65,18 +63,15 @@ class UnitBanList
 	/**
 	 * Fills this.names, this.templates and this.tooltips.
 	 */
-	build()
-	{
+	build() {
 		const civCodes = new Set(Object.keys(g_CivData));
 		const families = new Map();
 
-		for (const path of listFiles(this.Directory, ".xml", true))
-		{
+		for (const path of listFiles(this.Directory, ".xml", true)) {
 			// By splitting on both separators the list also works if the VFS returns
 			// platform-dependent paths.
 			const parts = path.split(/[\\/]/);
-			if (parts.length != 2)
-			{
+			if (parts.length != 2) {
 				// Templates in the units directory itself ("units/plane", "units/merc_thorakites", ...)
 				// aren't tied to a civilization and aren't trainable, so disabling them would
 				// have no effect.
@@ -100,20 +95,18 @@ class UnitBanList
 			family.templates.add("units/{civ}/" + filename);
 		}
 
-		const entries = Array.from(families, ([key, family]) =>
-			{
-				// Sorting the names is locale-dependent but only affects the local GUI,
-				// the disabled templates themselves are sorted deterministically.
-				const civs = Array.from(family.civs).sort();
-				return {
-					"name": this.makeName(key, civs),
-					"templates": Array.from(family.templates).sort()
-				};
-			})
+		const entries = Array.from(families, ([key, family]) => {
+			// Sorting the names is locale-dependent but only affects the local GUI,
+			// the disabled templates themselves are sorted deterministically.
+			const civs = Array.from(family.civs).sort();
+			return {
+				"name": this.makeName(key, civs),
+				"templates": Array.from(family.templates).sort()
+			};
+		})
 			.sort(sortNameIgnoreCase);
 
-		for (const entry of entries)
-		{
+		for (const entry of entries) {
 			this.names.push(entry.name);
 			this.templates.push(entry.templates);
 			this.tooltips.push(this.makeTooltip(entry.templates));
@@ -129,8 +122,7 @@ class UnitBanList
 	 * @param {string} filename
 	 * @returns {string}
 	 */
-	familyKey(filename)
-	{
+	familyKey(filename) {
 		let key = filename;
 		for (const suffix of this.VariantSuffixes)
 			key = key.replace(suffix, "");
@@ -143,8 +135,7 @@ class UnitBanList
 	 * @param {string[]} civs - civilizations that have this unit.
 	 * @returns {string}
 	 */
-	makeName(key, civs)
-	{
+	makeName(key, civs) {
 		const name = key.split("_")
 			.map(word => word.charAt(0).toUpperCase() + word.substr(1))
 			.join(" ");
@@ -164,8 +155,7 @@ class UnitBanList
 	 * @param {string[]} templates
 	 * @returns {string}
 	 */
-	makeTooltip(templates)
-	{
+	makeTooltip(templates) {
 		const shown = templates.slice(0, this.MaxTooltipTemplates);
 		let tooltip = sprintf(translate("Disables the following templates:\n%(templates)s"), {
 			"templates": shown.join("\n")
@@ -188,12 +178,10 @@ class UnitBanList
 	 * @param {string[]} templates
 	 * @returns {{name: string, templates: string[]}[]}
 	 */
-	groupTemplates(templates)
-	{
+	groupTemplates(templates) {
 		const groups = new Map();
 
-		for (const template of templates)
-		{
+		for (const template of templates) {
 			const index = this.reverse.get(template);
 			const name = index === undefined ? template : this.names[index];
 
@@ -213,8 +201,7 @@ class UnitBanList
  */
 var g_UnitBanList;
 
-function getUnitBanList()
-{
+function getUnitBanList() {
 	if (!g_UnitBanList)
 		g_UnitBanList = new UnitBanList();
 

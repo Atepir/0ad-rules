@@ -5,12 +5,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$source = Join-Path $PSScriptRoot "rules"
+$source = $PSScriptRoot
 $target = Join-Path $ModsDirectory "rules"
+
+# The mod is the repository root, so everything in it is part of the mod except these helpers.
+# tools/pyromod.py uses the same list when it cleans up the built .pyromod.
+$repositoryOnly = @(".git", ".github", ".dist", "output", "tools", "README.md", "deploy.ps1", ".gitignore")
 
 if (-not (Test-Path (Join-Path $source "mod.json")))
 {
-    throw "mod.json not found in '$source'."
+    throw "mod.json not found in '$source' - the mod has to be the repository root."
 }
 
 if (-not (Test-Path $ModsDirectory))
@@ -25,7 +29,14 @@ if (Test-Path $target)
 }
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 
-Copy-Item (Join-Path $source "*") $target -Recurse -Force
+foreach ($item in (Get-ChildItem $source -Force))
+{
+    if ($repositoryOnly -contains $item.Name)
+    {
+        continue
+    }
+    Copy-Item -LiteralPath $item.FullName -Destination $target -Recurse -Force
+}
 Write-Output "Deployed to '$target':"
 Get-ChildItem $target -Recurse -File |
     ForEach-Object { Write-Output "  " + $_.FullName.Replace($target + "\", "") }

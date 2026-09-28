@@ -20,7 +20,8 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $root = Split-Path $PSScriptRoot -Parent
-$modDirectory = Join-Path $root "rules"
+# The mod is the repository root; only the helper folders are not part of it.
+$modDirectory = $root
 $zipPath = Join-Path $GameDirectory "binaries\data\mods\public\public.zip"
 
 if (-not (Test-Path $zipPath))
@@ -49,7 +50,8 @@ if ($LASTEXITCODE -ne 0)
 Write-Output ""
 Write-Output "Syntax check:"
 $failed = 0
-foreach ($file in (Get-ChildItem $modDirectory -Recurse -File -Include *.js))
+foreach ($file in (Get-ChildItem $modDirectory -Recurse -File -Include *.js |
+        Where-Object { $_.FullName -notmatch '\\(tools|\.github|\.git|\.dist|output)\\' }))
 {
     & node --check $file.FullName 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0)
