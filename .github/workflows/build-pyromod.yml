@@ -1,91 +1,91 @@
 name: Build Pyromod
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - v**
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+    push:
+        branches:
+            - main
+        tags:
+            - v**
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:
 
 env:
-  # The mod *is* the repository root. 0ad-matters/gh-action-build-pyromod packs the directory
-  # it is given with paths relative to the working directory, and it needs a root-level ".git*"
-  # entry to strip, so the mod has to sit at the root - a mod in a subdirectory would end up
-  # with every path prefixed by that directory ("rules/mod.json") and an unusable archive.
-  MOD_NAME: rules
+    # The mod *is* the repository root. 0ad-matters/gh-action-build-pyromod packs the directory
+    # it is given with paths relative to the working directory, and it needs a root-level ".git*"
+    # entry to strip, so the mod has to sit at the root - a mod in a subdirectory would end up
+    # with every path prefixed by that directory ("rules/mod.json") and an unusable archive.
+    MOD_NAME: rules
 
 jobs:
-  build-pyromod:
-    if: ${{ github.ref_type != 'tag' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      MOD_VERSION: ${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: 0ad-matters/gh-action-build-pyromod@v2
-        with:
-          name: ${{ env.MOD_NAME }}
-          version: ${{ env.MOD_VERSION }}
-        id: build-pyromod
-      - name: Remove the repository files from the pyromod
-        run: python3 tools/pyromod.py strip "output/$MOD_NAME-$MOD_VERSION.pyromod"
-      - name: Check the pyromod
-        # Fails the build when the archive does not contain this mod and nothing else.
-        run: python3 tools/pyromod.py check "output/$MOD_NAME-$MOD_VERSION.pyromod"
-      - name: Upload Artifacts
-        # Uploads artifacts (combined into a zip file) to the workflow output page
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.MOD_NAME }}-${{ env.MOD_VERSION }}
-          path: "output/${{ env.MOD_NAME }}*.*"
-          if-no-files-found: error
+    build-pyromod:
+        if: ${{ github.ref_type != 'tag' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        env:
+            MOD_VERSION: ${{ github.sha }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: 0ad-matters/gh-action-build-pyromod@v2
+              with:
+                  name: ${{ env.MOD_NAME }}
+                  version: ${{ env.MOD_VERSION }}
+              id: build-pyromod
+            - name: Remove the repository files from the pyromod
+              run: python3 tools/pyromod.py strip "output/$MOD_NAME-$MOD_VERSION.pyromod"
+            - name: Check the pyromod
+              # Fails the build when the archive does not contain this mod and nothing else.
+              run: python3 tools/pyromod.py check "output/$MOD_NAME-$MOD_VERSION.pyromod"
+            - name: Upload Artifacts
+              # Uploads artifacts (combined into a zip file) to the workflow output page
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ env.MOD_NAME }}-${{ env.MOD_VERSION }}
+                  path: "output/${{ env.MOD_NAME }}*.*"
+                  if-no-files-found: error
 
-  release-pyromod:
-    if: ${{ github.ref_type == 'tag' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    env:
-      MOD_VERSION: ${{ github.ref_name }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Massage Variables
-        run: |
-          echo "MOD_VERSION=${MOD_VERSION:1}" >> $GITHUB_ENV
-      - name: Sync the mod manifest with the tag
-        # The name of the .pyromod is derived from the tag, but the version the game reports
-        # (and uses for the mod compatibility check between players) is the one in mod.json.
-        # This only rewrites the checked out working copy, nothing is committed.
-        run: |
-          sed -i -E "s/^([[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\")[^\"]*(\".*)$/\1${MOD_VERSION}\2/" mod.json
-          grep -qE "\"version\"[[:space:]]*:[[:space:]]*\"${MOD_VERSION}\"" mod.json
-      - uses: 0ad-matters/gh-action-build-pyromod@v2
-        with:
-          name: ${{ env.MOD_NAME }}
-          version: ${{ env.MOD_VERSION }}
-        id: build-pyromod
-      - name: Remove the repository files from the pyromod
-        run: python3 tools/pyromod.py strip "output/$MOD_NAME-$MOD_VERSION.pyromod"
-      - name: Check the pyromod
-        # Fails the build when the archive does not contain this mod and nothing else.
-        run: python3 tools/pyromod.py check "output/$MOD_NAME-$MOD_VERSION.pyromod"
-      - name: Create sha256sum
-        run: |
-          OUTPUT_FILE="$MOD_NAME-$MOD_VERSION.pyromod"
-          cd output
-          sha256sum $OUTPUT_FILE > $OUTPUT_FILE.sha256sum
-      - name: Release PyroMod
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: True
-          prerelease: False
-          artifacts: "output/${{ env.MOD_NAME }}*.*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          omitNameDuringUpdate: True
-          omitBodyDuringUpdate: True
+    release-pyromod:
+        if: ${{ github.ref_type == 'tag' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: write
+        env:
+            MOD_VERSION: ${{ github.ref_name }}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Massage Variables
+              run: |
+                  echo "MOD_VERSION=${MOD_VERSION:1}" >> $GITHUB_ENV
+            - name: Sync the mod manifest with the tag
+              # The name of the .pyromod is derived from the tag, but the version the game reports
+              # (and uses for the mod compatibility check between players) is the one in mod.json.
+              # This only rewrites the checked out working copy, nothing is committed.
+              run: |
+                  sed -i -E "s/^([[:space:]]*\"version\"[[:space:]]*:[[:space:]]*\")[^\"]*(\".*)$/\1${MOD_VERSION}\2/" mod.json
+                  grep -qE "\"version\"[[:space:]]*:[[:space:]]*\"${MOD_VERSION}\"" mod.json
+            - uses: 0ad-matters/gh-action-build-pyromod@v2
+              with:
+                  name: ${{ env.MOD_NAME }}
+                  version: ${{ env.MOD_VERSION }}
+              id: build-pyromod
+            - name: Remove the repository files from the pyromod
+              run: python3 tools/pyromod.py strip "output/$MOD_NAME-$MOD_VERSION.pyromod"
+            - name: Check the pyromod
+              # Fails the build when the archive does not contain this mod and nothing else.
+              run: python3 tools/pyromod.py check "output/$MOD_NAME-$MOD_VERSION.pyromod"
+            - name: Create sha256sum
+              run: |
+                  OUTPUT_FILE="$MOD_NAME-$MOD_VERSION.pyromod"
+                  cd output
+                  sha256sum $OUTPUT_FILE > $OUTPUT_FILE.sha256sum
+            - name: Release PyroMod
+              uses: ncipollo/release-action@v1
+              with:
+                  allowUpdates: True
+                  prerelease: False
+                  artifacts: "output/${{ env.MOD_NAME }}*.*"
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  omitNameDuringUpdate: True
+                  omitBodyDuringUpdate: True

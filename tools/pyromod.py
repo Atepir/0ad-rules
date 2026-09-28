@@ -56,8 +56,11 @@ def is_repository_only(name):
 def read_entries(archive):
     """Returns [(name, data)] for every regular file in the archive."""
     with zipfile.ZipFile(archive) as handle:
-        return [(info.filename, handle.read(info))
-                for info in handle.infolist() if not info.is_dir()]
+        return [
+            (info.filename, handle.read(info))
+            for info in handle.infolist()
+            if not info.is_dir()
+        ]
 
 
 def write_entries(archive, entries):
@@ -119,14 +122,21 @@ def check(archive):
 
     for directory in MOD_DIRECTORIES:
         if not any(name.startswith(directory + "/") for name in names):
-            problems.append(f"the mod directory {directory}/ is missing from the archive")
+            problems.append(
+                f"the mod directory {directory}/ is missing from the archive"
+            )
 
     known = {MANIFEST} | {directory + "/" for directory in MOD_DIRECTORIES}
-    for top_level in sorted({name.split("/")[0] + ("/" if "/" in name else "") for name in names}):
+    for top_level in sorted(
+        {name.split("/")[0] + ("/" if "/" in name else "") for name in names}
+    ):
         if is_repository_only(top_level) or top_level in known:
             continue
-        print(f"warning: unexpected entry '{top_level}' - add it to tools/pyromod.py if it is "
-              f"part of the mod, or to REPOSITORY_ONLY if it is not", file=sys.stderr)
+        print(
+            f"warning: unexpected entry '{top_level}' - add it to tools/pyromod.py if it is "
+            f"part of the mod, or to REPOSITORY_ONLY if it is not",
+            file=sys.stderr,
+        )
 
     print(f"{archive.name}: {len(names)} entries")
     for name in sorted(names):
@@ -146,10 +156,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    for name, help_text in (("strip", "remove the repository files from the pyromod"),
-                            ("check", "verify that the pyromod contains the mod and nothing else")):
+    for name, help_text in (
+        ("strip", "remove the repository files from the pyromod"),
+        ("check", "verify that the pyromod contains the mod and nothing else"),
+    ):
         subparsers.add_parser(name, help=help_text).add_argument(
-            "archive", type=Path, help="the .pyromod to process")
+            "archive", type=Path, help="the .pyromod to process"
+        )
 
     arguments = parser.parse_args()
     return {"strip": strip, "check": check}[arguments.command](arguments.archive)
