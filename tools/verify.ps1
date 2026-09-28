@@ -4,9 +4,10 @@
     Verifies the rules mod against the installed 0 A.D. copy.
 
 .DESCRIPTION
-    1. Dumps the list of shipped unit templates out of binaries/data/mods/public/public.zip.
-    2. Runs tools/verify-unitbanlist.js on that dump, which replays the mod's unit grouping
-       logic and checks the invariants the GUI and the simulation rely on.
+    1. Dumps the unit templates of binaries/data/mods/public/public.zip and the classes every
+       one of them inherits (tools/dump-unit-classes.py).
+    2. Runs tools/verify-unitbanlist.js on that dump, which replays the mod's unit grouping and
+       its class matching, and checks the invariants the Match Setup and the simulation rely on.
     3. Runs tools/verify-matchsettingslayout.js, which replays the Match Setup layout repair.
     4. Syntax-checks every JavaScript file of the mod.
 
@@ -30,17 +31,15 @@ if (-not (Test-Path $zipPath))
     throw "public.zip not found at '$zipPath'. Pass -GameDirectory."
 }
 
-# 1) Dump the shipped unit templates.
-$dump = Join-Path $env:TEMP "rules-unit-templates.txt"
-$zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-$entries = $zip.Entries |
-    Where-Object { $_.FullName -match '^simulation/templates/units/.*\.xml$' } |
-    ForEach-Object { $_.FullName }
-$zip.Dispose()
-Set-Content -Path $dump -Value $entries -Encoding ASCII
-Write-Output "Dumped $($entries.Count) unit template paths to '$dump'."
+# 1) Dump the unit templates and the classes they inherit.
+$dump = Join-Path $env:TEMP "rules-unit-classes.txt"
+& python (Join-Path $root "tools\dump-unit-classes.py") $zipPath $dump
+if ($LASTEXITCODE -ne 0)
+{
+    throw "dump-unit-classes.py failed."
+}
 
-# 2) Check the grouping logic.
+# 2) Check the grouping and the classes.
 & node (Join-Path $root "tools\verify-unitbanlist.js") $dump
 if ($LASTEXITCODE -ne 0)
 {

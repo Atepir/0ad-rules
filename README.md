@@ -18,13 +18,20 @@ hence the flat layout, and hence the `check` step of the workflow.
 ## Usage
 
 1. Host a game (or play a single player match) and open **Match Setup → Player**.
-2. **Disable Unit** — select a unit to disable it for every player.
-   Already disabled units are shown in red.
-3. **Enable Unit** — select a unit to make it available again.
+2. **Disable Unit** — select a unit, or a whole class of units, to disable it for every player.
+   Classes are listed first and shown in orange, the individual units below them. Already
+   disabled entries are shown in red.
+3. **Enable Unit** — select a unit or class to make it available again.
 
 Both settings list units by unit rather than by template, so selecting *Infantry Spearman*
 disables the basic, advanced and elite versions of that unit for **all** civilizations at once,
 and *Catafalque* disables it for every civilization that has one.
+
+The classes are what the game itself tags its units with, so **All Champion Cavalry** disables
+the champion cavalry of every civilization, whichever weapon and rank they have, and
+**All Immortals** disables the three Persian templates the game marks as Immortals. A class and
+a unit can be combined, and a unit that has no class of its own (the Gauls' *Naked Fanatic*) is
+still available as its unit entry.
 
 Only the host can change the settings; the other players see the same controls greyed out with a
 summary of how many units are disabled.
@@ -34,7 +41,8 @@ summary of how many units are disabled.
 | File | Purpose |
 | --- | --- |
 | `gamesettings/attributes/DisabledTemplates.js` | New game setting `DisabledTemplates`, the list of disabled templates. Stored in the game attributes, hence synchronized to all clients, saved in match settings, replays and savegames. |
-| `gui/gamesetup/Pages/GameSetupPage/GameSettings/Single/Dropdowns/UnitBanList.js` | Builds the list of disableable units from `simulation/templates/units/`. |
+| `.../Single/Dropdowns/UnitClasses.js` | The unit classes the host can pick, as `all`/`none` lists of the classes the game tags units with. |
+| `.../Single/Dropdowns/UnitBanList.js` | Builds the entries: the classes first, then the units of `simulation/templates/units/`. |
 | `.../Single/Dropdowns/DisabledTemplates.js` | The "Disable Unit" dropdown. |
 | `.../Single/Dropdowns/EnabledTemplates.js` | The "Enable Unit" dropdown. |
 | `.../Single/Dropdowns/MatchSettingsLayout.js` | Adds both controls to the tab that holds the player settings of the *effective* Match Setup layout, and drops settings of it that this game version doesn't have (see [Compatibility](#compatibility)). |
@@ -53,21 +61,33 @@ Templates are stored with the `{civ}` placeholder, e.g. `units/{civ}/infantry_sp
 `Player.prototype.OnGlobalInitGame` replaces it with each player's civilization when the
 simulation starts, which is what makes one entry disable a unit for every civilization.
 
-## Unit entries
+## Unit entries and classes
 
-`UnitBanList` groups the templates of `simulation/templates/units/` into 175 entries:
+`UnitBanList` turns `simulation/templates/units/` into 42 class entries and 175 unit entries:
 
-* the ranks of a unit (`_a`, `_b`, `_e`) are one entry;
-* packed/unpacked and ship-garrison (`_[abe]_trireme`) variants are one entry;
+* a class covers every unit that carries the classes of the entry, so *All Champion Infantry*
+  covers the 34 champion infantry units of the game, *All Siege Units* the siege engines and
+  *All Spearmen* every unit that fights with a spear, whatever its rank;
+* the entries are the ranks of a unit (`_a`, `_b`, `_e`), packed/unpacked and ship-garrison
+  (`_[abe]_trireme`) variants of a unit, and classes are excluded where the game's own classes
+  would be misleading (*All Citizen Soldiers* leaves out champions, heroes and mercenaries);
 * templates of unplayable civilizations (`pirates`) and civ-independent scenario/cheat units
   (`units/plane`, `units/merc_thorakites`, ...) are ignored, as they can't be trained.
 
-Hovering an entry shows the exact templates it disables.
+The classes come from the game itself: every template inherits `Identity/VisibleClasses` from
+its parents and mixins, which `Engine.GetTemplate().Identity.VisibleClasses._string` resolves -
+the same source the game's own Reference page reads. A game update that adds, renames or drops a
+class therefore changes the Match Setup without touching this mod, and a class that stops
+matching any unit is reported in the game log (`rules: the '...' unit class matches no unit.`).
+
+Hovering a class shows the units it disables, hovering a unit the exact templates.
 
 ## Limitations
 
 * Disabling a unit doesn't remove units that are already on the map or spawned by a scenario.
 * Technologies that unlock or improve a disabled unit remain available.
+* A class isn't tied to a civilization: *All Champion Infantry* disables the champion infantry
+  of every civilization, not just of one. The unit entries are there for that.
 * The setting is meant for the host; clients need the mod to join a match that uses it, so all
   players should install it.
 
@@ -191,9 +211,11 @@ Mods declaring `0ad>=0.28.0` or `0ad=0.28.0`, such as `feldmap`, `localratings`,
 
 The mod was checked against a 0.28.0 installation:
 
-* `tools/verify-unitbanlist.js` runs the unit grouping against the dumped template list of the
-  shipped `public.zip` and checks every invariant (no duplicate or unreachable templates,
-  no rank/packed/trireme variants leaking into the names, 175 entries covering 254 templates).
+* `tools/verify-unitbanlist.js` runs the unit grouping and the class matching against the real
+  templates of the shipped `public.zip` and checks every invariant: no duplicate or unreachable
+  templates, no rank/packed/trireme variants leaking into the names, 42 classes and 175 units,
+  and that a class covers exactly the units the game tags with it (computed from the dump,
+  independently of the mod's own matching).
 * `tools/verify-matchsettingslayout.js` runs `MatchSettingsLayout.js` against the vanilla layout,
   against the stale `feldmap` layout and against the layout this mod used to ship, and checks that
   the result never lists a setting that has no control and always contains both settings.
@@ -212,12 +234,21 @@ The mod was checked against a 0.28.0 installation:
 ## Development
 
 * `tools/verify.ps1` verifies the mod against an installed 0 A.D.: it dumps the shipped template
-  list out of `public.zip`, runs the checks below and syntax-checks every mod script.
-* `tools/verify-unitbanlist.js` replays the unit grouping logic outside the game and checks the
-  invariants the GUI and the simulation rely on:
+  list and the classes of every unit out of `public.zip`, runs the checks below and syntax-checks
+  every mod script.
+* `tools/dump-unit-classes.py` walks the parent and mixin chain of every unit template of
+  `public.zip` and writes one `path<TAB>classes` line per template, exactly like the engine
+  resolves them:
 
   ```
-  node tools/verify-unitbanlist.js <unit-templates.txt>
+  python tools/dump-unit-classes.py <public.zip> <output-file>
+  ```
+
+* `tools/verify-unitbanlist.js` replays the unit grouping and the class matching outside the
+  game and checks the invariants the GUI and the simulation rely on:
+
+  ```
+  node tools/verify-unitbanlist.js <unit-classes.txt>
   ```
 
 * `tools/verify-matchsettingslayout.js` replays the layout repair, including the feldmap 3.0.1

@@ -2,7 +2,9 @@
 	"name": "rules",
 	"version": "0.2",
 	"label": "Disable Units",
-	"description": "Adds two Match Setup options that let the host disable specific units for every player of the match.",
+	"description": "Adds two Match Setup options that let the host disable units, or whole classes of units, for every player of the match.",
 	"ignoreInCompatibilityChecks": true,
-	"dependencies": ["0ad>=0.27.0"]
+	"dependencies": [
+		"0ad>=0.27.0"
+	]
 }
