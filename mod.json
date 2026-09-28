@@ -1,6 +1,6 @@
 {
 	"name": "rules",
-	"version": "0.2",
+	"version": "0.2.1",
 	"label": "Disable Units",
 	"description": "Adds two Match Setup options that let the host disable units, or whole classes of units, for every player of the match.",
 	"ignoreInCompatibilityChecks": true,
