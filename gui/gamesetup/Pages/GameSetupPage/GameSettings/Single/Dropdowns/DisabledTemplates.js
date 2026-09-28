@@ -8,10 +8,8 @@
  *
  * Re-enabling is done with the "Enable Unit" setting.
  */
-GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSettingControlDropdown
-{
-	constructor(...args)
-	{
+GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSettingControlDropdown {
+	constructor(...args) {
 		super(...args);
 
 		this.banList = getUnitBanList();
@@ -20,15 +18,13 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 		this.render();
 	}
 
-	onHoverChange()
-	{
+	onHoverChange() {
 		const hovered = this.dropdown.hovered;
 		this.dropdown.tooltip =
 			hovered > 0 && this.banList.entries[hovered - 1].tooltip || this.Tooltip;
 	}
 
-	render()
-	{
+	render() {
 		this.setHidden(!this.banList.entries.length);
 
 		const disabled = g_GameSettings.disabledTemplates.templates;
@@ -36,8 +32,7 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 			entry.templates.some(template => disabled.indexOf(template) != -1);
 
 		this.dropdown.list = [sprintf(this.SummaryCaption, { "count": disabled.length })]
-			.concat(this.banList.entries.map(entry =>
-			{
+			.concat(this.banList.entries.map(entry => {
 				if (isDisabled(entry))
 					return setStringTags(entry.name, this.DisabledTags);
 
@@ -51,13 +46,11 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 		this.setSelectedValue("");
 	}
 
-	getAutocompleteEntries()
-	{
+	getAutocompleteEntries() {
 		return this.banList.entries.map(entry => entry.name);
 	}
 
-	onSelectionChange(itemIdx)
-	{
+	onSelectionChange(itemIdx) {
 		// The placeholder, which is selected after every change.
 		if (itemIdx <= 0)
 			return;

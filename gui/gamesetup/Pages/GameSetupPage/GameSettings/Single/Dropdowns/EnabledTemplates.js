@@ -6,10 +6,8 @@
  * disabled, so that a class (colored, see UnitClasses.js), or the three ranks of a unit, are
  * made available again with one click.
  */
-GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown
-{
-	constructor(...args)
-	{
+GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown {
+	constructor(...args) {
 		super(...args);
 
 		this.banList = getUnitBanList();
@@ -18,11 +16,9 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.render();
 	}
 
-	onHoverChange()
-	{
+	onHoverChange() {
 		const group = this.groups[this.dropdown.hovered - 1];
-		if (!group)
-		{
+		if (!group) {
 			this.dropdown.tooltip = this.Tooltip;
 			return;
 		}
@@ -38,8 +34,7 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.dropdown.tooltip = tooltip;
 	}
 
-	render()
-	{
+	render() {
 		this.setHidden(!this.banList.entries.length);
 
 		const disabled = g_GameSettings.disabledTemplates.templates;
@@ -56,14 +51,12 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.setSelectedValue("");
 	}
 
-	getAutocompleteEntries()
-	{
+	getAutocompleteEntries() {
 		return this.banList.reenableEntries(g_GameSettings.disabledTemplates.templates)
 			.map(group => group.name);
 	}
 
-	onSelectionChange(itemIdx)
-	{
+	onSelectionChange(itemIdx) {
 		// The placeholder, which is selected after every change.
 		if (itemIdx <= 0)
 			return;

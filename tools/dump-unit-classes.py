@@ -10,6 +10,7 @@ per template:
 
 Usage: python tools/dump-unit-classes.py [<public.zip>] [<output-file>]
 """
+
 import os
 import sys
 import zipfile
@@ -21,7 +22,9 @@ TEMPLATE_ROOT = "simulation/templates/"
 
 
 def default_zip():
-    return os.path.join(DEFAULT_GAME_DIRECTORY, "binaries", "data", "mods", "public", "public.zip")
+    return os.path.join(
+        DEFAULT_GAME_DIRECTORY, "binaries", "data", "mods", "public", "public.zip"
+    )
 
 
 class Templates:
@@ -40,7 +43,9 @@ class Templates:
 
         result = None
         try:
-            root = ElementTree.fromstring(self.archive.read(path).decode("utf-8", errors="replace"))
+            root = ElementTree.fromstring(
+                self.archive.read(path).decode("utf-8", errors="replace")
+            )
             identity = root.find("Identity")
             classes = []
             if identity is not None:
@@ -56,7 +61,10 @@ class Templates:
 
     def find(self, part):
         """A parent attribute names a template, or a mixin of simulation/templates/mixins/."""
-        for candidate in (TEMPLATE_ROOT + part + ".xml", TEMPLATE_ROOT + "mixins/" + part + ".xml"):
+        for candidate in (
+            TEMPLATE_ROOT + part + ".xml",
+            TEMPLATE_ROOT + "mixins/" + part + ".xml",
+        ):
             if candidate in self.names:
                 return candidate
         return None
@@ -109,8 +117,11 @@ def main():
         raise SystemExit(f"public.zip not found at '{zip_path}'.")
 
     templates = Templates(zip_path)
-    unit_paths = sorted(name for name in templates.names
-                        if name.startswith(TEMPLATE_ROOT + "units/") and name.endswith(".xml"))
+    unit_paths = sorted(
+        name
+        for name in templates.names
+        if name.startswith(TEMPLATE_ROOT + "units/") and name.endswith(".xml")
+    )
 
     vocabulary = {}
     with open(output, "w", encoding="utf-8", newline="\n") as handle:
@@ -122,13 +133,19 @@ def main():
 
     print(f"Dumped the classes of {len(unit_paths)} unit templates to '{output}'.")
     print(f"  distinct classes : {len(vocabulary)}")
-    print("  most common      : " + ", ".join(
-        f"{name} ({count})" for name, count in
-        sorted(vocabulary.items(), key=lambda item: -item[1])[:8]))
+    print(
+        "  most common      : "
+        + ", ".join(
+            f"{name} ({count})"
+            for name, count in sorted(vocabulary.items(), key=lambda item: -item[1])[:8]
+        )
+    )
 
     if templates.missing:
-        print(f"  WARNING: {len(templates.missing)} parents could not be resolved, "
-              f"e.g. {sorted(templates.missing)[:3]}")
+        print(
+            f"  WARNING: {len(templates.missing)} parents could not be resolved, "
+            f"e.g. {sorted(templates.missing)[:3]}"
+        )
 
 
 if __name__ == "__main__":
