@@ -1,11 +1,11 @@
 # rules
 
-A 0 A.D. (0.28 "Zhuang Zhou") mod that lets the **host of a match disable whole classes of
-units**.
+A 0 A.D. (0.28 "Zhuang Zhou") mod that lets the **host of a match disable three classes of
+units**: the champion cavalry, the Gauls' fanatics and the Persian Immortals.
 
 The host picks classes in the Match Setup; the list is synchronized to every client and enforced
-by the simulation, so the units of a disabled class can't be trained (units) or built (structures)
-by anyone, including the AI.
+by the simulation, so the units of a disabled class can't be trained by anyone, including the
+AI.
 
 ## Repository layout
 
@@ -19,25 +19,17 @@ hence the flat layout, and hence the `check` step of the workflow.
 ## Usage
 
 1. Host a game (or play a single player match) and open **Match Setup → Player**.
-2. **Disable Unit Class** — select a class of units to disable it for every player. The first row
-   of the list counts and names the disabled classes (*Nothing disabled* / *Disabled (2): All
-   Cataphracts, All Champion Cavalry*), and it is also the value the closed control shows, so the
-   state is visible without opening the list.
+2. **Disable Unit Class** — select one of the three classes below to disable it for every player.
+   The first row of the list counts and names the disabled ones (*Nothing disabled* / *Disabled
+   (2): Fanatics, Immortals*), and it is also the value the closed control shows, so the state is
+   visible without opening the list.
 3. **Enable Unit Class** — select a class to make its units available again, or *Enable all
    disabled classes* to undo the whole selection at once.
 
-A class the host disabled is shown with a bullet and in red, and so is a class that ends up with
-every one of its units disabled because it is contained in a disabled class - the color means
-*none of these units can be built*, not *this row was clicked*. A class that a disabled class only
-cuts into - the champion cavalry of a civilization is also one of its champions - is shown in
-orange and says on hover how many of its units are already disabled. A class that shares nothing
-with the disabled ones keeps its normal color.
-
-The classes are what the game itself tags its units with, so **All Champion Cavalry** disables
-the champion cavalry of every civilization, whichever weapon and rank they have, and
-**All Immortals** disables the three Persian templates the game marks as Immortals. The classes
-are listed by unit, not by template: *All Champion Infantry* also covers the Gauls' *Naked
-Fanatic*, which has no class of its own.
+A class the host disabled is shown with a bullet and in red. A class that a disabled class only
+cuts into is shown in orange, and says on hover how many of its units are already disabled - with
+these three classes that only happens when a scenario map, or a match setting written by an older
+version of this mod, disabled single units; see [Unit classes](#unit-classes).
 
 Only the host can change the settings; the other players see the same controls greyed out with a
 summary of how many units are disabled.
@@ -47,8 +39,8 @@ summary of how many units are disabled.
 | File | Purpose |
 | --- | --- |
 | `gamesettings/attributes/DisabledTemplates.js` | New game setting `DisabledTemplates`, the list of disabled templates. Stored in the game attributes, hence synchronized to all clients, saved in match settings, replays and savegames. |
-| `.../Single/Dropdowns/UnitClasses.js` | The unit classes the host can pick, as `all`/`none` lists of the classes the game tags units with. |
-| `.../Single/Dropdowns/UnitBanList.js` | Builds the class entries from the unit templates of `simulation/templates/units/`. |
+| `.../Single/Dropdowns/UnitClasses.js` | The three classes the host can pick, as matches on the classes the game tags units with, or on a template file. |
+| `.../Single/Dropdowns/UnitBanList.js` | Turns `simulation/templates/units/` into one entry per class. |
 | `.../Single/Dropdowns/DisabledTemplates.js` | The "Disable Unit Class" dropdown. |
 | `.../Single/Dropdowns/EnabledTemplates.js` | The "Enable Unit Class" dropdown. |
 | `.../Single/Dropdowns/MatchSettingsLayout.js` | Adds both controls to the tab that holds the player settings of the *effective* Match Setup layout, and drops settings of it that this game version doesn't have (see [Compatibility](#compatibility)). |
@@ -69,44 +61,45 @@ simulation starts, which is what makes one entry disable a unit for every civili
 
 ## Unit classes
 
-`UnitBanList` turns `simulation/templates/units/` into 44 class entries, one per class of
-`UnitClasses.js`, and only classes can be disabled:
+The mod offers exactly three classes - the ones that turned out broken in a game release and
+that a host therefore wants out of a match. `UnitBanList` scans `simulation/templates/units/`
+and builds one entry per class of `UnitClasses.js`:
 
-* a class covers every unit of a playable civilization that carries all of its classes, so
-  *All Champion Infantry* covers the 34 champion infantry templates of the game, *All Immortals*
-  the three Persian templates the game marks as Immortals and *All War Dogs* the Britons' war
-  dogs, whatever rank, weapon or pack state a unit has;
-* a unit every playable civilization has is stored once, as the `{civ}` placeholder the
-  simulation expands per player, so a class disables it for all of them at once;
-* a unit that only some civilizations have, or that is a different unit for some of them, is
-  stored for those civilizations alone: *All Immortals* disables the Persians'
-  `champion_infantry`, which is the ordinary champion infantry of every other civilization, and
-  *All Cataphracts* only the Roman and Ptolemaic `champion_cavalry`;
-* the classes are exclusive where the game's own classes are: *All Citizen Soldier Infantry*
-  leaves out champions, heroes and mercenaries;
-* together the 44 classes cover every trainable template, so no unit is left un-bannable.
-  `tools/verify-unitbanlist.js` fails when a game update adds a unit no class covers;
-* templates of unplayable civilizations (`pirates`) and civ-independent scenario/cheat units
-  (`units/plane`, `units/merc_thorakites`, ...) are ignored, as they can't be trained.
+* **Champion Cavalry** - every unit of a playable civilization the game tags as both *Champion*
+  and *Cavalry*, whichever weapon and rank they have (16 templates, the Britons' chariots and the
+  Persians' cataphracts included);
+* **Fanatics** - the Gauls' Naked Fanatic. The game tags it as an ordinary champion infantry
+  unit, so this class matches the template file `champion_fanatic` instead of tags;
+* **Immortals** - the three Persian templates the game tags as *Immortal*.
 
-The classes come from the game itself: every template inherits `Identity/VisibleClasses` from
-its parents and mixins, which `Engine.GetTemplate().Identity.VisibleClasses._string` resolves -
-the same source the game's own Reference page reads. A game update that adds, renames or drops a
-class therefore changes the Match Setup without touching this mod, and a class that stops
-matching any unit, or a unit no class covers, is reported in the game log
-(`rules: the '...' unit class matches no unit.`, `rules: no unit class covers N unit
-template(s), e.g. ...`).
+Together that is 20 templates, and no unit is listed by two classes.
 
-Hovering a class shows up to six of the templates it disables.
+A unit every playable civilization has is stored once, as the `{civ}` placeholder the simulation
+expands per player, so a class disables it for all of them at once. A unit that only some
+civilizations have, or that is a different unit for some of them, is stored for those
+civilizations alone: *Immortals* disables the Persians' `champion_infantry`, which is the
+ordinary champion infantry of every other civilization, so those keep theirs.
+
+*Champion Cavalry* and *Immortals* match on the classes the game itself tags its units with:
+every template inherits `Identity/VisibleClasses` from its parents and mixins, which
+`Engine.GetTemplate().Identity.VisibleClasses._string` resolves - the same source the game's own
+Reference page reads. A game update that retags a unit therefore moves it between the classes
+here without this mod being touched, and a class that stops matching any unit is reported in the
+game log (`rules: the '...' unit class matches no unit.`).
+
+Templates of unplayable civilizations (`pirates`) and civ-independent scenario/cheat units
+(`units/plane`, `units/merc_thorakites`, ...) are ignored, as they can't be trained. Hovering a
+class shows up to six of the templates it disables.
 
 ## Limitations
 
-* Only whole classes can be disabled: a single unit can't be banned on its own. Disable one
-  class, or disable several and re-enable the ones the match should keep.
+* Only the three classes above can be disabled: neither a single unit nor any other class can be
+  banned on its own. Disable one class, or disable several and re-enable the ones the match
+  should keep.
 * Disabling a class doesn't remove units that are already on the map or spawned by a scenario.
 * Technologies that unlock or improve a disabled unit remain available.
-* A class isn't tied to a civilization: *All Champion Infantry* disables the champion infantry
-  of every civilization, not just of one.
+* A class isn't tied to a civilization: *Champion Cavalry* disables the champion cavalry of every
+  civilization, not just of one.
 * The setting is meant for the host; clients need the mod to join a match that uses it, so all
   players should install it.
 
@@ -230,12 +223,11 @@ Mods declaring `0ad>=0.28.0` or `0ad=0.28.0`, such as `feldmap`, `localratings`,
 
 The mod was checked against a 0.28.0 installation:
 
-* `tools/verify-unitbanlist.js` runs the class matching against the real templates of the
-  shipped `public.zip` and checks every invariant: 44 class entries, no duplicate or untrainable
-  templates, no class left empty, and that a class covers exactly the units the game tags with
-  it (computed from the dump, independently of the mod's own matching). Above all it checks that
-  the classes together cover all 254 trainable templates, since a unit that no class covers could
-  not be disabled at all.
+* `tools/verify-unitbanlist.js` runs the class matching against the real templates of the shipped
+  `public.zip` and checks every invariant: the three classes and nothing else, the templates each
+  of them disables (computed from the dump, independently of the mod's own matching), no duplicate
+  or untrainable template, no class left empty, and the rules that mark a class as disabled and
+  enable it again, including settings written by older versions of the mod.
 * `tools/verify-matchsettingslayout.js` runs `MatchSettingsLayout.js` against the vanilla layout,
   against the stale `feldmap` layout and against the layout this mod used to ship, and checks that
   the result never lists a setting that has no control and always contains both settings.

@@ -1,14 +1,11 @@
 /**
- * The unit classes the host can disable in the Match Setup.
+ * The three unit classes the host can disable in the Match Setup.
  *
- * The entries are the classes of UnitClasses.js. A class disables every unit that carries the
- * classes of the entry, for every civilization, whatever its rank and weapon, so "All Champion
- * Infantry" covers the champion infantry of the game in one entry instead of 34.
- *
- * Only classes are listed: a single unit that is broken in a release is disabled through the
- * class it belongs to (the Gauls' Naked Fanatic through "All Champion Infantry"), which keeps
- * the list short and the setting readable. A unit that no class covers would be impossible to
- * disable, so that is reported in the game log.
+ * The entries are the classes of UnitClasses.js - champion cavalry, fanatics and immortals -
+ * and nothing else: the mod covers the units that turned out broken in a game release, not
+ * everything that can be banned. A class disables every unit that carries the classes of the
+ * entry, for every civilization, whatever its rank and weapon, so "Champion Cavalry" covers
+ * the champion cavalry of the game in one entry instead of sixteen.
  *
  * A unit template is stored as "units/{civ}/<file>", so that one entry disables the unit for
  * every civilization at once; the placeholder is expanded by the simulation for each player
@@ -49,13 +46,6 @@ class UnitBanList {
 		 * @type {Set<string>}
 		 */
 		this.civCodes = new Set();
-
-		/**
-		 * Templates of the loaded game that at least one class covers.
-		 *
-		 * @type {Set<string>}
-		 */
-		this.covered = new Set();
 
 		this.build();
 	}
@@ -101,12 +91,9 @@ class UnitBanList {
 		for (let index = 0; index < this.entries.length; ++index)
 			for (const template of this.entries[index].templates) {
 				const canonical = this.canonicalTemplate(template);
-				this.covered.add(canonical);
 				if (!this.reverse.has(canonical))
 					this.reverse.set(canonical, index);
 			}
-
-		this.warnUncoveredTemplates(templates.map(unit => this.canonicalTemplate(unit.template)));
 	}
 
 	/**
@@ -167,29 +154,10 @@ class UnitBanList {
 	}
 
 	/**
-	 * Reports the trainable units that no class of the list covers, because a host couldn't
-	 * disable them. A game update that renames a class, or adds a unit with a new tag, is what
-	 * introduces one.
-	 *
-	 * @param {string[]} templates - Templates in their "{civ}" form.
-	 */
-	warnUncoveredTemplates(templates) {
-		const uncovered = Array.from(new Set(templates
-			.filter(template => !this.covered.has(template))));
-
-		if (!uncovered.length)
-			return;
-
-		warn("rules: no unit class covers " + uncovered.length + " unit template(s), e.g. " +
-			uncovered.slice(0, this.MaxTooltipTemplates).join(", ") +
-			". They can't be disabled in the Match Setup.");
-	}
-
-	/**
 	 * The classes of a unit template, as the game's own Reference page reads them.
 	 *
 	 * A template of a game version that tags units differently has no classes here, which keeps
-	 * it out of every class, hence the warning.
+	 * it out of every class that matches on tags.
 	 *
 	 * @param {string} path - Template path without the ".xml" extension.
 	 * @returns {Set<string>}
@@ -217,7 +185,8 @@ class UnitBanList {
 	 * @returns {Object|undefined} The entry, or undefined when the class matches no unit.
 	 */
 	makeClassEntry(unitClass, templates) {
-		const matching = templates.filter(unit => unitMatchesClass(unitClass, unit.classes));
+		const matching = templates
+			.filter(unit => unitMatchesClass(unitClass, unit.filename, unit.classes));
 
 		if (!matching.length) {
 			warn("rules: the '" + unitClass.label + "' unit class matches no unit.");

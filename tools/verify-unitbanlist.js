@@ -1,10 +1,11 @@
 /**
- * Offline verification of UnitBanList and UnitClasses of the "rules" mod.
+ * Offline verification of the unit classes of the "rules" mod.
  *
  * Runs the mod's class matching against the real templates shipped with 0 A.D. (the classes of
  * every unit are dumped by tools/dump-unit-classes.py) with stubbed engine globals, then checks
- * the invariants the Match Setup and the simulation rely on - above all that the classes cover
- * every trainable unit, since the settings only offer classes.
+ * the invariants the Match Setup and the simulation rely on: the three classes of the mod, the
+ * templates each of them disables, and the rules that mark a class as disabled and enable it
+ * again.
  *
  * Usage: node tools/verify-unitbanlist.js <unit-classes.txt>
  */
@@ -20,6 +21,7 @@ if (!dumpFile) {
 }
 
 const unitPrefix = "simulation/templates/units/";
+const CLASSES = ["Champion Cavalry", "Fanatics", "Immortals"];
 
 // Every dumped line is a template and the classes it inherits, e.g.
 // simulation/templates/units/athen/champion_infantry.xml<TAB>Champion Infantry Melee Soldier Spearman
@@ -98,6 +100,8 @@ const check = (condition, message) => {
 
 const entries = built.list.entries;
 const entryOf = name => entries.find(entry => entry.name == name);
+const templatesOf = entry => entry.templates.slice().sort();
+const equals = (a, b) => JSON.stringify(a) == JSON.stringify(b);
 
 /** The classes of a unit, in a specific civilization of the dump. */
 const classesAt = template => classesOf.get("simulation/templates/" + template);
@@ -116,14 +120,14 @@ const canonical = template => {
 };
 
 /**
- * What a class must contain: the units the dump tags with it. A file that every playable
+ * What a class must contain: the units of the dump it matches. A file that every playable
  * civilization has is one "{civ}" template, the others are listed per civilization, so that a
  * class can't disable a unit another civilization shares the file with.
  */
 const expectedMembers = predicate => {
     const matching = Array.from(classesOf)
-        .filter(([name, classes]) => civCodes.includes(name.slice(unitPrefix.length).split("/")[0]) &&
-            predicate(classes))
+        .filter(([name]) => civCodes.includes(name.slice(unitPrefix.length).split("/")[0]))
+        .filter(([name, classes]) => predicate(classes, name.split("/").pop()))
         .map(([name]) => name.slice(unitPrefix.length).split("/"));
 
     const civilizations = new Map();
@@ -144,24 +148,12 @@ const expectedMembers = predicate => {
     return templates.sort();
 };
 
-const templatesOf = entry => entry.templates.slice().sort();
-const equals = (a, b) => JSON.stringify(a) == JSON.stringify(b);
-
 // ------------------------------------------------------------------- the shape of the list
 check(dumpedPaths.length > 500, "expected the full unit template list, got " + dumpedPaths.length);
 check(built.warnings.length == 0, "building the list must not warn: " + built.warnings);
-check(built.classes.length > 40, "expected the class table, got " + built.classes.length);
-check(entries.length > 40, "expected the class entries, got " + entries.length);
-check(entries.length <= built.classes.length, "no class may produce two entries");
+check(equals(entries.map(entry => entry.name), CLASSES),
+    "the mod offers exactly its three classes: " + JSON.stringify(entries.map(entry => entry.name)));
 
-// Only classes are offered, and every class that matches a unit is offered.
-const labels = new Set(built.classes.map(unitClass => unitClass.label));
-const missing = built.classes.map(unitClass => unitClass.label).filter(label => !entryOf(label));
-check(missing.length == 0, "classes without an entry: " + missing);
-for (const entry of entries)
-    check(labels.has(entry.name), `'${entry.name}' is not a class of UnitClasses.js`);
-
-// ---------------------------------------------------------------------- every single entry
 for (const entry of entries) {
     check(entry.templates.length > 0, `entry '${entry.name}' disables nothing`);
     check(!!entry.tooltip, `entry '${entry.name}' has no tooltip`);
@@ -172,83 +164,60 @@ for (const entry of entries) {
         const parts = template.split("/");
         check(parts.length == 3 && parts[0] == "units", `'${template}' is not a unit template`);
         check(parts[1] == "{civ}" || civCodes.includes(parts[1]),
-            `'${template}' is not tied to a civilization or a placeholder`);
-        check(trainable.has(canonical(template)), `'${template}' is not a unit of a playable civilization`);
-        check(built.list.reverse.has(canonical(template)), `'${template}' is not in the reverse map`);
+            `'${template}' is not tied to a civilization or the "{civ}" placeholder`);
+        check(trainable.has(canonical(template)),
+            `'${template}' is not a unit of a playable civilization`);
+        check(built.list.reverse.has(canonical(template)),
+            `'${template}' is not in the reverse map`);
     }
 }
 
-// The settings only offer classes, so a unit that no class covers could not be disabled at all.
-const covered = new Set();
-for (const entry of entries)
-    for (const template of entry.templates)
-        covered.add(canonical(template));
-
-const uncovered = Array.from(trainable).filter(template => !covered.has(template)).sort();
-check(uncovered.length == 0, "units no class covers, hence un-bannable: " + uncovered);
-check(covered.size == trainable.size,
-    `the classes cover ${covered.size} templates, the game has ${trainable.size}`);
-
-// ------------------------------------------------------- the classes must match the game data
-check(equals(templatesOf(entryOf("All Champion Cavalry")),
+// ------------------------------------------------- the classes must match the game data
+check(equals(templatesOf(entryOf("Champion Cavalry")),
     expectedMembers(classes => classes.has("Champion") && classes.has("Cavalry"))),
-    "All Champion Cavalry must be the champion cavalry of the game, and nothing else");
-check(equals(templatesOf(entryOf("All Champion Infantry")),
-    expectedMembers(classes => classes.has("Champion") && classes.has("Infantry"))),
-    "All Champion Infantry must be the champion infantry of the game, and nothing else");
-check(equals(templatesOf(entryOf("All Immortals")),
+    "Champion Cavalry must be the champion cavalry of the game, and nothing else");
+check(equals(templatesOf(entryOf("Immortals")),
     expectedMembers(classes => classes.has("Immortal"))),
-    "All Immortals must be exactly the units the game tags as Immortals");
-check(equals(templatesOf(entryOf("All Warships")),
-    expectedMembers(classes => classes.has("Warship"))),
-    "All Warships must be the warships of the game");
-check(equals(templatesOf(entryOf("All Spearmen")),
-    expectedMembers(classes => classes.has("Spearman"))),
-    "All Spearmen must be every unit fighting with a spear");
-check(equals(templatesOf(entryOf("All Citizen Soldier Infantry")),
-    expectedMembers(classes => classes.has("Soldier") && classes.has("Infantry") &&
-        !classes.has("Champion") && !classes.has("Hero") && !classes.has("Mercenary"))),
-    "All Citizen Soldier Infantry must leave out champions, heroes and mercenaries");
-check(equals(templatesOf(entryOf("All Catafalques")),
-    expectedMembers(classes => classes.has("Relic"))),
-    "All Catafalques must be the units the game tags as relics, hence the catafalques");
-check(equals(templatesOf(entryOf("All War Dogs")),
-    expectedMembers(classes => classes.has("Dog"))),
-    "All War Dogs must be the war dogs of the game");
+    "Immortals must be exactly the units the game tags as Immortals");
+check(equals(templatesOf(entryOf("Fanatics")),
+    expectedMembers((classes, filename) => filename == "champion_fanatic")),
+    "Fanatics must be the units built from champion_fanatic");
 
-// The cases this feature was asked for.
-check(entryOf("All Champion Cavalry").templates.includes("units/{civ}/champion_cavalry") ||
-    entryOf("All Champion Cavalry").templates.some(template => template.endsWith("/champion_cavalry")),
-    "the champion cavalry of the civilizations must be in All Champion Cavalry");
-check(entryOf("All Champion Infantry").templates.some(template => template.endsWith("/champion_fanatic")),
-    "the Naked Fanatic is champion infantry and must be covered by All Champion Infantry");
-check(entryOf("All Champion Infantry").templates.some(template => template.endsWith("/champion_infantry")),
-    "the Immortals' unit is champion infantry");
-check(entryOf("All Champion Cavalry").templates.some(template => template.endsWith("/champion_chariot")),
+check(entryOf("Champion Cavalry").templates.some(template => template.endsWith("/champion_cavalry")),
+    "the champion cavalry of the civilizations must be in Champion Cavalry");
+check(entryOf("Champion Cavalry").templates.some(template => template.endsWith("/champion_chariot")),
     "the Britons' champion chariot is champion cavalry");
-check(entryOf("All Immortals").templates.includes("units/{civ}/champion_infantry_archer_upgrade") ||
-    entryOf("All Immortals").templates.some(template => template.endsWith("/champion_infantry_archer_upgrade")),
+check(!entryOf("Champion Cavalry").templates.some(template => template.endsWith("/champion_infantry")),
+    "Champion Cavalry must not contain champion infantry");
+check(entryOf("Fanatics").templates.some(template => template.endsWith("/champion_fanatic")),
+    "the Gauls' Naked Fanatic must be in Fanatics");
+check(entryOf("Immortals").templates.some(template => template.endsWith("/champion_infantry")),
+    "the Immortals' unit is champion infantry");
+check(entryOf("Immortals").templates.some(template =>
+    template.endsWith("/champion_infantry_archer_upgrade")),
     "All Immortals must hold the Immortal archers");
-check(!entryOf("All Immortals").templates.includes("units/{civ}/champion_infantry_archer"),
-    "All Immortals must not contain the Persian champion archer");
-check(!entryOf("All Immortals").templates.includes("units/{civ}/champion_infantry") &&
-    entryOf("All Immortals").templates.includes("units/pers/champion_infantry"),
+check(!entryOf("Immortals").templates.some(template =>
+    template.endsWith("/champion_infantry_archer")),
+    "Immortals must not contain the Persian champion archer");
+check(entryOf("Immortals").templates.includes("units/pers/champion_infantry"),
     "the Persian Immortals' champion_infantry is the unit other civilizations share the file " +
-    "with, so All Immortals must disable it for the Persians only, not through \"{civ}\": " +
-    JSON.stringify(entryOf("All Immortals").templates));
-check(entryOf("All Champion Cavalry").templates.includes("units/{civ}/champion_infantry") == false,
-    "All Champion Cavalry must not contain champion infantry");
+    "with, so it must be disabled for the Persians only, not through \"{civ}\": " +
+    JSON.stringify(entryOf("Immortals").templates));
 
-// ---------------------------------------------------- the classes must be disjoint where the
-// game's own classes are, so that a host can rely on them.
-check(classesAt("units/athen/champion_infantry").has("Champion") &&
-    classesAt("units/athen/champion_infantry").has("Infantry") &&
-    !classesAt("units/athen/champion_infantry").has("Cavalry"),
-    "champion infantry must not be cavalry in the game data this check runs against");
+{
+    // A unit the mod disables twice, or in two classes, would be confusing to enable again.
+    const seen = new Map();
+    for (const entry of entries)
+        for (const template of entry.templates) {
+            check(!seen.has(template),
+                `'${template}' is in both '${seen.get(template)}' and '${entry.name}'`);
+            seen.set(template, entry.name);
+        }
+}
 
 // --------------------------------------------------- what the dropdown marks as disabled
 /**
- * What the Disable dropdown colors: the state of every entry for a disabled template list.
+ * What the Disable dropdown colors and the Enable dropdown offers, for a disabled template list.
  */
 const statesFor = templates => {
     const disabled = built.list.canonicalTemplates(templates);
@@ -256,49 +225,30 @@ const statesFor = templates => {
     return {
         "marked": entries
             .filter(entry => built.list.disabledState(entry, disabled) == "all")
-            .map(entry => entry.name)
-            .sort(),
-        "stateOf": name => built.list.disabledState(entryOf(name), disabled),
-        "shared": entries.filter(entry => entry.templates
-            .some(template => disabled.has(canonical(template)))).length
+            .map(entry => entry.name),
+        "stateOf": name => built.list.disabledState(entryOf(name), disabled)
     };
 };
 
-{
-    // The champion cavalry of a civilization is also one of its champions, so classes always
-    // overlap: only the class the host disabled may be marked, not every class it cuts into.
-    const { marked, stateOf, shared } = statesFor(entryOf("All Champion Cavalry").templates);
+for (const entry of entries) {
+    const { marked, stateOf } = statesFor(entry.templates);
 
-    check(equals(marked, ["All Cataphracts", "All Champion Cavalry"]),
-        "only the classes the host disabled are marked, and the cataphracts they cover: " +
-        JSON.stringify(marked));
-    check(stateOf("All Champions") == "partly",
-        "the champion cavalry also partly disables the champions it belongs to");
-    check(stateOf("All Champion Infantry") == "none",
-        "the champion infantry shares no unit with the champion cavalry");
-    check(stateOf("All Fishing Boats") == "none",
-        "a class that shares nothing with the disabled one is not marked at all");
-    check(shared > marked.length,
-        `the classes sharing a template outnumber the marked ones (${shared} share, ` +
-        `${marked.length} marked), which is what the marker must not report`);
-    check(built.list.disabledCount(entryOf("All Champion Cavalry"),
-        built.list.canonicalTemplates(entryOf("All Champion Cavalry").templates)) ==
-        entryOf("All Champion Cavalry").templates.length,
-        "a disabled class counts all of its own templates as disabled");
+    check(equals(marked, [entry.name]),
+        `disabling '${entry.name}' must mark only it: ` + JSON.stringify(marked));
+    for (const other of entries)
+        if (other != entry)
+            check(stateOf(other.name) == "none",
+                `disabling '${entry.name}' must not mark '${other.name}'`);
 }
 
 {
-    const { marked, stateOf } = statesFor(entryOf("All Immortals").templates);
+    // The three classes share no unit, so partly disabled is what a scenario map or a setting of
+    // an older version of this mod produces, not a normal selection.
+    const { marked, stateOf } = statesFor(["units/{civ}/champion_cavalry"]);
 
-    check(equals(marked, ["All Immortals"]),
-        "the Immortals mark exactly the class that was disabled: " + JSON.stringify(marked));
-    check(stateOf("All Champion Infantry") == "partly",
-        "the Persian champion infantry is part of All Champion Infantry, hence partly disabled");
-}
-
-{
-    const { marked } = statesFor([]);
-    check(marked.length == 0, "nothing disabled marks nothing");
+    check(marked.length == 0, "one unit does not disable a class: " + JSON.stringify(marked));
+    check(stateOf("Champion Cavalry") == "partly", "one of its units disables it partly");
+    check(stateOf("Immortals") == "none", "a unit of another class doesn't touch it");
 }
 
 // ------------------------------------------------------------------- re-enabling entries
@@ -323,21 +273,19 @@ const reenable = templates => {
     return groups;
 };
 
-{
-    const banned = entryOf("All Champion Cavalry").templates;
-    const groups = reenable(banned);
-    const full = groups.find(group => group.name == "All Champion Cavalry");
+for (const entry of entries) {
+    const groups = reenable(entry.templates);
+    const full = groups.find(group => group.name == entry.name);
 
-    check(!!full, "a fully disabled class must be offered as one entry");
-    check(full && equals(full.templates.slice().sort(), banned.slice().sort()),
-        "a fully disabled class must offer exactly the templates it disables");
-    check(!groups.some(group => group.name == entryOf("All Champion Infantry").name),
-        "a class that is still enabled must not be offered");
+    check(groups.length == 1 && !!full,
+        `'${entry.name}' must be offered as the only entry: ` +
+        JSON.stringify(groups.map(group => group.name)));
+    check(full && equals(full.templates.slice().sort(), entry.templates.slice().sort()),
+        `'${entry.name}' must offer exactly the templates it disables`);
 }
 
 {
-    // One template of a class with several, as a scenario map or an older version of this mod
-    // sets it: the class is not fully disabled, so the templates are offered as a partial group.
+    // A disabled class that a scenario map or an older version of this mod only cut into.
     const partial = ["units/{civ}/champion_infantry"];
     const groups = built.list.reenableEntries(partial);
 
@@ -347,8 +295,22 @@ const reenable = templates => {
 
     const suffix = " (partly disabled)";
     check(groups[0].name.endsWith(suffix) &&
-        built.classes.some(unitClass => groups[0].name == unitClass.label + suffix),
+        CLASSES.some(label => groups[0].name == label + suffix),
         "a partial group must be named after the class it belongs to: " + groups[0].name);
+}
+
+{
+    // A setting of a version that stored the civilizations as "{civ}": the class it belongs to
+    // must still be offered, and enabling it must remove the template as the setting stores it.
+    const legacy = ["units/{civ}/champion_cavalry"];
+    const groups = reenable(legacy);
+
+    const suffix = " (partly disabled)";
+    check(groups.length == 1 && groups[0].name == "Champion Cavalry" + suffix,
+        "a legacy \"{civ}\" template must be offered by its class: " +
+        JSON.stringify(groups.map(group => group.name)));
+    check(groups[0] && equals(groups[0].disabled, legacy),
+        "a legacy group must offer the template as the setting stores it");
 }
 
 {
@@ -356,38 +318,13 @@ const reenable = templates => {
     check(groups.length == 0, "nothing disabled must offer nothing");
 }
 
-{
-    // A setting of a version of this mod that stored the civilizations as "{civ}": the class it
-    // belongs to must still be offered, and enabling it must remove the template as it is
-    // stored, or the setting would keep a template the host can't get rid of.
-    const legacy = ["units/{civ}/champion_cavalry"];
-    const groups = reenable(legacy);
-
-    /** A group name is the class it belongs to, optionally marked as partly disabled. */
-    const isClassName = name => built.classes.some(unitClass =>
-        name == unitClass.label || name == unitClass.label + " (partly disabled)");
-
-    check(groups.length == 1 && isClassName(groups[0].name),
-        "a legacy \"{civ}\" template must be offered by class, not as a raw template: " +
-        JSON.stringify(groups.map(group => group.name)));
-    check(groups[0] && groups[0].disabled.length == 1 && groups[0].disabled[0] == legacy[0],
-        "a legacy group must offer the template as the setting stores it");
-}
-
-const biggest = entries.slice().sort((a, b) => b.templates.length - a.templates.length);
+const memberships = entries.reduce((sum, entry) => sum + entry.templates.length, 0);
 console.log(`unit templates listed by the engine : ${dumpedPaths.length}`);
 console.log(`trainable "{civ}" templates        : ${trainable.size}`);
-console.log(`class entries                      : ${entries.length}`);
-console.log(`covered by the classes             : ${covered.size} (uncovered: ${uncovered.length})`);
-console.log("the classes asked for              : " + ["All Champion Cavalry", "All Champion Infantry", "All Immortals"]
-    .map(name => `${name} (${entryOf(name).templates.length})`)
-    .join(", "));
-console.log("disabling All Champion Cavalry     : " +
-    JSON.stringify(statesFor(entryOf("All Champion Cavalry").templates).marked) +
-    ` marked, ${statesFor(entryOf("All Champion Cavalry").templates).shared} share a template`);
-console.log("largest classes                    : " + biggest.slice(0, 5)
+console.log(`classes                            : ` + entries
     .map(entry => `${entry.name} (${entry.templates.length})`)
     .join(", "));
+console.log(`templates disabled in total        : ${memberships}`);
 console.log();
 
 if (failures.length) {

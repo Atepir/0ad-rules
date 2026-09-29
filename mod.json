@@ -2,7 +2,7 @@
 	"name": "rules",
 	"version": "28.1.1",
 	"label": "Disable Units",
-	"description": "Adds two Match Setup options that let the host disable whole classes of units, such as the champion cavalry, for every player of the match.",
+	"description": "Adds two Match Setup options that let the host disable the champion cavalry, the fanatics or the immortals for every player of the match.",
 	"ignoreInCompatibilityChecks": true,
 	"dependencies": [
 		"0ad>=0.27.0"
