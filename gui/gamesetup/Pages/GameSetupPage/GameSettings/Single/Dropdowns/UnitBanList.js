@@ -99,8 +99,7 @@ class UnitBanList {
 			.filter(entry => entry);
 
 		for (let index = 0; index < this.entries.length; ++index)
-			for (const template of this.entries[index].templates)
-			{
+			for (const template of this.entries[index].templates) {
 				const canonical = this.canonicalTemplate(template);
 				this.covered.add(canonical);
 				if (!this.reverse.has(canonical))
