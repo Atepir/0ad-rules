@@ -246,6 +246,61 @@ check(classesAt("units/athen/champion_infantry").has("Champion") &&
     !classesAt("units/athen/champion_infantry").has("Cavalry"),
     "champion infantry must not be cavalry in the game data this check runs against");
 
+// --------------------------------------------------- what the dropdown marks as disabled
+/**
+ * What the Disable dropdown colors: the state of every entry for a disabled template list.
+ */
+const statesFor = templates => {
+    const disabled = built.list.canonicalTemplates(templates);
+
+    return {
+        "marked": entries
+            .filter(entry => built.list.disabledState(entry, disabled) == "all")
+            .map(entry => entry.name)
+            .sort(),
+        "stateOf": name => built.list.disabledState(entryOf(name), disabled),
+        "shared": entries.filter(entry => entry.templates
+            .some(template => disabled.has(canonical(template)))).length
+    };
+};
+
+{
+    // The champion cavalry of a civilization is also one of its champions, so classes always
+    // overlap: only the class the host disabled may be marked, not every class it cuts into.
+    const { marked, stateOf, shared } = statesFor(entryOf("All Champion Cavalry").templates);
+
+    check(equals(marked, ["All Cataphracts", "All Champion Cavalry"]),
+        "only the classes the host disabled are marked, and the cataphracts they cover: " +
+        JSON.stringify(marked));
+    check(stateOf("All Champions") == "partly",
+        "the champion cavalry also partly disables the champions it belongs to");
+    check(stateOf("All Champion Infantry") == "none",
+        "the champion infantry shares no unit with the champion cavalry");
+    check(stateOf("All Fishing Boats") == "none",
+        "a class that shares nothing with the disabled one is not marked at all");
+    check(shared > marked.length,
+        `the classes sharing a template outnumber the marked ones (${shared} share, ` +
+        `${marked.length} marked), which is what the marker must not report`);
+    check(built.list.disabledCount(entryOf("All Champion Cavalry"),
+        built.list.canonicalTemplates(entryOf("All Champion Cavalry").templates)) ==
+        entryOf("All Champion Cavalry").templates.length,
+        "a disabled class counts all of its own templates as disabled");
+}
+
+{
+    const { marked, stateOf } = statesFor(entryOf("All Immortals").templates);
+
+    check(equals(marked, ["All Immortals"]),
+        "the Immortals mark exactly the class that was disabled: " + JSON.stringify(marked));
+    check(stateOf("All Champion Infantry") == "partly",
+        "the Persian champion infantry is part of All Champion Infantry, hence partly disabled");
+}
+
+{
+    const { marked } = statesFor([]);
+    check(marked.length == 0, "nothing disabled marks nothing");
+}
+
 // ------------------------------------------------------------------- re-enabling entries
 /**
  * What enabling every offered group removes, which has to be exactly what was disabled.
@@ -327,6 +382,9 @@ console.log(`covered by the classes             : ${covered.size} (uncovered: ${
 console.log("the classes asked for              : " + ["All Champion Cavalry", "All Champion Infantry", "All Immortals"]
     .map(name => `${name} (${entryOf(name).templates.length})`)
     .join(", "));
+console.log("disabling All Champion Cavalry     : " +
+    JSON.stringify(statesFor(entryOf("All Champion Cavalry").templates).marked) +
+    ` marked, ${statesFor(entryOf("All Champion Cavalry").templates).shared} share a template`);
 console.log("largest classes                    : " + biggest.slice(0, 5)
     .map(entry => `${entry.name} (${entry.templates.length})`)
     .join(", "));

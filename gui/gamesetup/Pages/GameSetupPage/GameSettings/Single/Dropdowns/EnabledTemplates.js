@@ -3,9 +3,11 @@
  * setting.
  *
  * Only what is currently disabled is listed, and an entry is listed when everything it covers is
- * disabled, so that a class is made available again with one click. A template that no class
- * covers completely (something a scenario map set, or a version of this mod that listed single
- * units) is grouped by its class, or listed as it is.
+ * disabled, so that a class is made available again with one click. When more than one class is
+ * disabled the first entry undoes all of them at once, which is the quickest way out of a
+ * selection the host no longer wants. A template that no class covers completely (something a
+ * scenario map set, or a version of this mod that listed single units) is grouped by its class,
+ * or listed as it is.
  */
 GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown {
 	constructor(...args) {
@@ -38,11 +40,11 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 	render() {
 		this.setHidden(!this.banList.entries.length);
 
-		const disabled = g_GameSettings.disabledTemplates.templates;
-		this.groups = this.banList.reenableEntries(disabled);
+		this.groups = this.buildGroups();
 
-		this.dropdown.list = [sprintf(this.SummaryCaption, { "count": disabled.length })]
-			.concat(this.groups.map(group => group.name));
+		this.dropdown.list = [sprintf(this.SummaryCaption, {
+			"count": g_GameSettings.disabledTemplates.templates.length
+		})].concat(this.groups.map(group => group.name));
 
 		// The placeholder is identified by an empty value, so that setSelectedValue selects it.
 		this.dropdown.list_data = [""].concat(this.groups.map(group => group.name));
@@ -51,9 +53,28 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.setSelectedValue("");
 	}
 
+	/**
+	 * The entries that undo the current setting, the first of which undoes all of it.
+	 *
+	 * @returns {{name: string, templates: string[], disabled: string[]}[]}
+	 */
+	buildGroups() {
+		const disabled = g_GameSettings.disabledTemplates.templates;
+		const groups = this.banList.reenableEntries(disabled);
+
+		// With a single group there is nothing to undo in one go: choosing it is that class.
+		if (groups.length > 1)
+			groups.unshift({
+				"name": sprintf(this.EnableAllCaption, { "count": groups.length }),
+				"templates": disabled,
+				"disabled": disabled
+			});
+
+		return groups;
+	}
+
 	getAutocompleteEntries() {
-		return this.banList.reenableEntries(g_GameSettings.disabledTemplates.templates)
-			.map(group => group.name);
+		return this.buildGroups().map(group => group.name);
 	}
 
 	onSelectionChange(itemIdx) {
@@ -74,6 +95,9 @@ GameSettingControls.EnabledTemplates.prototype.Tooltip =
 
 GameSettingControls.EnabledTemplates.prototype.SummaryCaption =
 	translate("Select a class to enable (%(count)s disabled)");
+
+GameSettingControls.EnabledTemplates.prototype.EnableAllCaption =
+	translate("Enable all disabled classes (%(count)s)");
 
 GameSettingControls.EnabledTemplates.prototype.HoverTooltip =
 	translate("Enables the following templates:\n%(templates)s");

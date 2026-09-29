@@ -124,6 +124,49 @@ class UnitBanList {
 	}
 
 	/**
+	 * The "{civ}" form of a list of templates, which is what every comparison uses.
+	 *
+	 * @param {string[]} templates
+	 * @returns {Set<string>}
+	 */
+	canonicalTemplates(templates) {
+		return new Set(templates.map(template => this.canonicalTemplate(template)));
+	}
+
+	/**
+	 * How much of a class the disabled templates cover.
+	 *
+	 * Classes overlap - the champion cavalry of a civilization is also one of its champions - so
+	 * a single disabled template says nothing about a class: what matters is whether the host
+	 * disabled the whole class. Only that is reported as disabled, and a class the disabled
+	 * templates only cut into is reported as such.
+	 *
+	 * @param {Object} entry
+	 * @param {Set<string>} disabled - Disabled templates, in their "{civ}" form.
+	 * @returns {string} "none", "partly" or "all".
+	 */
+	disabledState(entry, disabled) {
+		const covered = this.disabledCount(entry, disabled);
+
+		if (covered == entry.templates.length)
+			return "all";
+
+		return covered ? "partly" : "none";
+	}
+
+	/**
+	 * The number of templates of a class that the disabled templates cover.
+	 *
+	 * @param {Object} entry
+	 * @param {Set<string>} disabled - Disabled templates, in their "{civ}" form.
+	 * @returns {number}
+	 */
+	disabledCount(entry, disabled) {
+		return entry.templates
+			.filter(template => disabled.has(this.canonicalTemplate(template))).length;
+	}
+
+	/**
 	 * Reports the trainable units that no class of the list covers, because a host couldn't
 	 * disable them. A game update that renames a class, or adds a unit with a new tag, is what
 	 * introduces one.

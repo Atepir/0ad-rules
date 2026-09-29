@@ -19,11 +19,19 @@ hence the flat layout, and hence the `check` step of the workflow.
 ## Usage
 
 1. Host a game (or play a single player match) and open **Match Setup → Player**.
-2. **Disable Unit Class** — select a class of units to disable it for every player. The classes
-   the host already disabled are marked with a bullet and shown in red; the first row of the
-   list always summarises them (*Nothing disabled* / *Disabled: All Champion Cavalry, All
-   Immortals*).
-3. **Enable Unit Class** — select a class to make its units available again.
+2. **Disable Unit Class** — select a class of units to disable it for every player. The first row
+   of the list counts and names the disabled classes (*Nothing disabled* / *2 classes disabled:
+   All Cataphracts, All Champion Cavalry*), and it is also the value the closed control shows, so
+   the state is visible without opening the list.
+3. **Enable Unit Class** — select a class to make its units available again, or *Enable all
+   disabled classes* to undo the whole selection at once.
+
+A class the host disabled is shown with a bullet and in red, and so is a class that ends up with
+every one of its units disabled because it is contained in a disabled class - the color means
+*none of these units can be built*, not *this row was clicked*. A class that a disabled class only
+cuts into - the champion cavalry of a civilization is also one of its champions - is shown in
+orange and says on hover how many of its units are already disabled. A class that shares nothing
+with the disabled ones keeps its normal color.
 
 The classes are what the game itself tags its units with, so **All Champion Cavalry** disables
 the champion cavalry of every civilization, whichever weapon and rank they have, and
