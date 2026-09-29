@@ -52,10 +52,10 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 		this.dropdown.list = [this.makeSummaryCaption()]
 			.concat(this.banList.entries.map((entry, index) => {
 				switch (this.states[index]) {
-				case "all":
-					return setStringTags(this.DisabledMarker + entry.name, this.DisabledTags);
-				case "partly":
-					return setStringTags(entry.name, this.PartlyDisabledTags);
+					case "all":
+						return setStringTags(this.DisabledMarker + entry.name, this.DisabledTags);
+					case "partly":
+						return setStringTags(entry.name, this.PartlyDisabledTags);
 				}
 
 				return entry.name;
