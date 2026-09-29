@@ -120,7 +120,7 @@ GameSettingControls.DisabledTemplates.prototype.NothingDisabledCaption =
 	translate("Nothing disabled");
 
 GameSettingControls.DisabledTemplates.prototype.DisabledCaption =
-	translate("%(count)s class(es) disabled: %(classes)s");
+	translate("Disabled (%(count)s): %(classes)s");
 
 GameSettingControls.DisabledTemplates.prototype.MoreDisabledCaption =
 	translate("and %(count)s more");

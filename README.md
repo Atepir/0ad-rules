@@ -20,9 +20,9 @@ hence the flat layout, and hence the `check` step of the workflow.
 
 1. Host a game (or play a single player match) and open **Match Setup → Player**.
 2. **Disable Unit Class** — select a class of units to disable it for every player. The first row
-   of the list counts and names the disabled classes (*Nothing disabled* / *2 classes disabled:
-   All Cataphracts, All Champion Cavalry*), and it is also the value the closed control shows, so
-   the state is visible without opening the list.
+   of the list counts and names the disabled classes (*Nothing disabled* / *Disabled (2): All
+   Cataphracts, All Champion Cavalry*), and it is also the value the closed control shows, so the
+   state is visible without opening the list.
 3. **Enable Unit Class** — select a class to make its units available again, or *Enable all
    disabled classes* to undo the whole selection at once.
 
