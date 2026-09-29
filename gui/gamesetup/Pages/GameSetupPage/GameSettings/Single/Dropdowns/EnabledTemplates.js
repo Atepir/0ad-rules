@@ -1,10 +1,11 @@
 /**
- * Lets the host enable units, and whole classes of units, that were disabled with the
- * "Disable Unit" setting.
+ * Lets the host enable whole classes of units that were disabled with the "Disable Unit Class"
+ * setting.
  *
- * Only what is currently disabled is listed. An entry is offered when everything it covers is
- * disabled, so that a class (colored, see UnitClasses.js), or the three ranks of a unit, are
- * made available again with one click.
+ * Only what is currently disabled is listed, and an entry is listed when everything it covers is
+ * disabled, so that a class is made available again with one click. A template that no class
+ * covers completely (something a scenario map set, or a version of this mod that listed single
+ * units) is grouped by its class, or listed as it is.
  */
 GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettingControlDropdown {
 	constructor(...args) {
@@ -41,13 +42,12 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		this.groups = this.banList.reenableEntries(disabled);
 
 		this.dropdown.list = [sprintf(this.SummaryCaption, { "count": disabled.length })]
-			.concat(this.groups.map(group =>
-				group.isClass ? setStringTags(group.name, this.ClassTags) : group.name));
+			.concat(this.groups.map(group => group.name));
 
 		// The placeholder is identified by an empty value, so that setSelectedValue selects it.
 		this.dropdown.list_data = [""].concat(this.groups.map(group => group.name));
 
-		// Always reselect the placeholder, so that the same entry can be selected twice in a row.
+		// Always reselect the placeholder, so that the same class can be enabled twice in a row.
 		this.setSelectedValue("");
 	}
 
@@ -61,19 +61,19 @@ GameSettingControls.EnabledTemplates = class EnabledTemplates extends GameSettin
 		if (itemIdx <= 0)
 			return;
 
-		g_GameSettings.disabledTemplates.setTemplatesEnabled(this.groups[itemIdx - 1].templates, false);
+		g_GameSettings.disabledTemplates.setTemplatesEnabled(this.groups[itemIdx - 1].disabled, false);
 		this.gameSettingsController.setNetworkInitAttributes();
 	}
 };
 
 GameSettingControls.EnabledTemplates.prototype.TitleCaption =
-	translate("Enable Unit");
+	translate("Enable Unit Class");
 
 GameSettingControls.EnabledTemplates.prototype.Tooltip =
-	translate("Select a unit, or a class of units, to make it available again.");
+	translate("Select a class of units to make it available again.");
 
 GameSettingControls.EnabledTemplates.prototype.SummaryCaption =
-	translate("Select a unit or class to enable (%(count)s disabled)");
+	translate("Select a class to enable (%(count)s disabled)");
 
 GameSettingControls.EnabledTemplates.prototype.HoverTooltip =
 	translate("Enables the following templates:\n%(templates)s");
@@ -82,11 +82,5 @@ GameSettingControls.EnabledTemplates.prototype.HoverTooltip =
  * Maximum number of templates listed in a tooltip.
  */
 GameSettingControls.EnabledTemplates.prototype.MaxTooltipTemplates = 6;
-
-/**
- * Classes are the coarse entries, colored so that they stand out from the individual units.
- */
-GameSettingControls.EnabledTemplates.prototype.ClassTags =
-	{ "color": "orange" };
 
 GameSettingControls.EnabledTemplates.prototype.AutocompleteOrder = 0;

@@ -1,18 +1,21 @@
 /**
- * The list of units and unit classes the host can disable in the Match Setup.
+ * The unit classes the host can disable in the Match Setup.
  *
- * Unit templates are grouped into "families" so that the host disables a unit instead of a
- * specific template:
- *  - the basic (a), advanced (b) and elite (e) ranks of a unit are one entry;
- *  - packed/unpacked and ship-garrison ("cavalry_axeman_a_trireme") variants are one entry;
- *  - the civilization folder of the template path is replaced by the "{civ}" placeholder, so
- *    that one entry disables the unit for every civilization at once. It is expanded by the
- *    simulation for each player (see Player.prototype.OnGlobalInitGame).
+ * The entries are the classes of UnitClasses.js. A class disables every unit that carries the
+ * classes of the entry, for every civilization, whatever its rank and weapon, so "All Champion
+ * Infantry" covers the champion infantry of the game in one entry instead of 34.
  *
- * The classes of UnitClasses.js are listed first, one entry each, and disable every unit that
- * carries the classes of the entry ("Champion Cavalry" covers the champion cavalry of every
- * civilization, whatever their weapon and rank). The individual units follow, so that a
- * single unit (the "Naked Fanatic" of the Gauls, for instance) can still be picked.
+ * Only classes are listed: a single unit that is broken in a release is disabled through the
+ * class it belongs to (the Gauls' Naked Fanatic through "All Champion Infantry"), which keeps
+ * the list short and the setting readable. A unit that no class covers would be impossible to
+ * disable, so that is reported in the game log.
+ *
+ * A unit template is stored as "units/{civ}/<file>", so that one entry disables the unit for
+ * every civilization at once; the placeholder is expanded by the simulation for each player
+ * (see Player.prototype.OnGlobalInitGame). A file that only some civilizations have - or that is
+ * a different unit for some of them, like the Persian Immortals' champion_infantry - is stored
+ * with those civilizations spelled out, so that disabling it can't disable an unrelated unit of
+ * another civilization.
  *
  * Only trainable units of playable civilizations are listed.
  */
@@ -24,54 +27,44 @@ class UnitBanList {
 		this.Directory = "simulation/templates/units/";
 
 		/**
-		 * Suffixes that mark a variant of a unit rather than a different unit.
-		 *
-		 * The rank of a unit (basic, advanced, elite) is either the last part of the name or is
-		 * followed by the variant, as in "cavalry_axeman_a_trireme".
-		 */
-		this.VariantSuffixes = [
-			/_(?:un)?packed$/,
-			/_[abe]_trireme$/,
-			/_[abe]$/
-		];
-
-		/**
-		 * Maximum number of units shown in the tooltip of a class.
-		 */
-		this.MaxTooltipUnits = 6;
-
-		/**
-		 * Maximum number of templates shown in the tooltip of a unit.
+		 * Maximum number of templates listed in a tooltip.
 		 */
 		this.MaxTooltipTemplates = 6;
 
 		/**
-		 * Everything the host can disable, the unit classes of UnitClasses.js first.
+		 * Everything the host can disable, in the order of g_UnitClassList.
 		 *
-		 * @type {{name: string, templates: string[], tooltip: string, isClass: boolean}[]}
+		 * @type {{name: string, templates: string[], tooltip: string}[]}
 		 */
 		this.entries = [];
 
 		/**
-		 * Name of the unit entry a template belongs to, if any, for the tooltips of the classes.
-		 */
-		this.unitNames = new Map();
-
-		/**
-		 * Maps a disabled template to the index of the entry describing it, preferring the unit
-		 * entries over the class ones, so that re-enabling names the unit.
+		 * Maps a template to the index of the entry that covers it.
 		 */
 		this.reverse = new Map();
+
+		/**
+		 * Codes of the playable civilizations.
+		 *
+		 * @type {Set<string>}
+		 */
+		this.civCodes = new Set();
+
+		/**
+		 * Templates of the loaded game that at least one class covers.
+		 *
+		 * @type {Set<string>}
+		 */
+		this.covered = new Set();
 
 		this.build();
 	}
 
 	/**
-	 * Fills this.entries and the lookup maps.
+	 * Fills this.entries and this.reverse.
 	 */
 	build() {
-		const civCodes = new Set(Object.keys(g_CivData));
-		const families = new Map();
+		this.civCodes = new Set(Object.keys(g_CivData));
 		const templates = [];
 
 		for (const path of listFiles(this.Directory, ".xml", true)) {
@@ -90,60 +83,71 @@ class UnitBanList {
 			const [civ, filename] = parts;
 
 			// Units of playable civilizations only, the others can't appear in a match.
-			if (!civCodes.has(civ))
+			if (!this.civCodes.has(civ))
 				continue;
 
-			const key = this.familyKey(filename);
-			if (!families.has(key))
-				families.set(key, { "civs": new Set(), "templates": new Set() });
-
-			const family = families.get(key);
-			family.civs.add(civ);
-			family.templates.add("units/{civ}/" + filename);
-
 			templates.push({
-				"template": "units/{civ}/" + filename,
+				"template": "units/" + civ + "/" + filename,
+				"filename": filename,
+				"civ": civ,
 				"classes": this.templateClasses("units/" + civ + "/" + filename)
 			});
 		}
 
-		const unitEntries = Array.from(families, ([key, family]) => {
-			// Sorting the names is locale-dependent but only affects the local GUI,
-			// the disabled templates themselves are sorted deterministically.
-			const civs = Array.from(family.civs).sort();
-			return {
-				"name": this.makeName(key, civs),
-				"templates": Array.from(family.templates).sort(),
-				"isClass": false
-			};
-		})
-			.sort(sortNameIgnoreCase);
-
-		for (const entry of unitEntries) {
-			entry.tooltip = this.makeTooltip(entry.templates);
-			for (const template of entry.templates)
-				this.unitNames.set(template, entry.name);
-		}
-
 		this.entries = g_UnitClassList
 			.map(unitClass => this.makeClassEntry(unitClass, templates))
-			.filter(entry => entry)
-			.concat(unitEntries);
+			.filter(entry => entry);
 
-		// The unit entries win the lookup, so that re-enabling names the unit and not the class.
-		for (const isClass of [false, true])
-			for (let index = 0; index < this.entries.length; ++index)
-				if (this.entries[index].isClass === isClass)
-					for (const template of this.entries[index].templates)
-						if (!this.reverse.has(template))
-							this.reverse.set(template, index);
+		for (let index = 0; index < this.entries.length; ++index)
+			for (const template of this.entries[index].templates)
+			{
+				const canonical = this.canonicalTemplate(template);
+				this.covered.add(canonical);
+				if (!this.reverse.has(canonical))
+					this.reverse.set(canonical, index);
+			}
+
+		this.warnUncoveredTemplates(templates.map(unit => this.canonicalTemplate(unit.template)));
+	}
+
+	/**
+	 * The "{civ}" form of a template path, used to compare and store the templates of different
+	 * civilizations together.
+	 *
+	 * @param {string} path
+	 * @returns {string}
+	 */
+	canonicalTemplate(path) {
+		const parts = path.split("/");
+		return parts.length == 3 && this.civCodes.has(parts[1]) ?
+			parts[0] + "/{civ}/" + parts[2] :
+			path;
+	}
+
+	/**
+	 * Reports the trainable units that no class of the list covers, because a host couldn't
+	 * disable them. A game update that renames a class, or adds a unit with a new tag, is what
+	 * introduces one.
+	 *
+	 * @param {string[]} templates - Templates in their "{civ}" form.
+	 */
+	warnUncoveredTemplates(templates) {
+		const uncovered = Array.from(new Set(templates
+			.filter(template => !this.covered.has(template))));
+
+		if (!uncovered.length)
+			return;
+
+		warn("rules: no unit class covers " + uncovered.length + " unit template(s), e.g. " +
+			uncovered.slice(0, this.MaxTooltipTemplates).join(", ") +
+			". They can't be disabled in the Match Setup.");
 	}
 
 	/**
 	 * The classes of a unit template, as the game's own Reference page reads them.
 	 *
-	 * A template of a game version that tags units differently has no classes here, which only
-	 * keeps it out of the classes; its unit entry still disables it, hence the warning.
+	 * A template of a game version that tags units differently has no classes here, which keeps
+	 * it out of every class, hence the warning.
 	 *
 	 * @param {string} path - Template path without the ".xml" extension.
 	 * @returns {Set<string>}
@@ -167,63 +171,44 @@ class UnitBanList {
 
 	/**
 	 * @param {Object} unitClass - Entry of g_UnitClassList.
-	 * @param {{template: string, classes: Set<string>}[]} templates
+	 * @param {{template: string, filename: string, civ: string, classes: Set<string>}[]} templates
 	 * @returns {Object|undefined} The entry, or undefined when the class matches no unit.
 	 */
 	makeClassEntry(unitClass, templates) {
-		// Several civilizations can have a unit of the same name, and they all end up as the
-		// same "{civ}" template, hence the set.
-		const matching = Array.from(new Set(templates
-			.filter(unit => unitMatchesClass(unitClass, unit.classes))
-			.map(unit => unit.template)))
-			.sort();
+		const matching = templates.filter(unit => unitMatchesClass(unitClass, unit.classes));
 
 		if (!matching.length) {
 			warn("rules: the '" + unitClass.label + "' unit class matches no unit.");
 			return undefined;
 		}
 
+		// Every civilization can have a unit with the same file name, and they are the same unit
+		// unless a civilization gives it its own template. A file that every playable civilization
+		// has is disabled with one "{civ}" template; the others are listed one by one, so that
+		// disabling e.g. the Persian Immortals doesn't also disable the champion infantry the
+		// other civilizations share the file with.
+		const civilizations = new Map();
+		for (const unit of matching) {
+			if (!civilizations.has(unit.filename))
+				civilizations.set(unit.filename, new Set());
+			civilizations.get(unit.filename).add(unit.civ);
+		}
+
+		const entryTemplates = [];
+		for (const [filename, civs] of civilizations)
+			if (civs.size == this.civCodes.size)
+				entryTemplates.push("units/{civ}/" + filename);
+			else
+				for (const civ of civs)
+					entryTemplates.push("units/" + civ + "/" + filename);
+
+		entryTemplates.sort();
+
 		return {
 			"name": translate(unitClass.label),
-			"templates": matching,
-			"tooltip": this.makeClassTooltip(matching),
-			"isClass": true
+			"templates": entryTemplates,
+			"tooltip": this.makeTooltip(entryTemplates)
 		};
-	}
-
-	/**
-	 * The key that groups all variants of the same unit.
-	 *
-	 * @param {string} filename
-	 * @returns {string}
-	 */
-	familyKey(filename) {
-		let key = filename;
-		for (const suffix of this.VariantSuffixes)
-			key = key.replace(suffix, "");
-
-		return key;
-	}
-
-	/**
-	 * @param {string} key
-	 * @param {string[]} civs - civilizations that have this unit.
-	 * @returns {string}
-	 */
-	makeName(key, civs) {
-		const name = key.split("_")
-			.map(word => word.charAt(0).toUpperCase() + word.substr(1))
-			.join(" ");
-
-		// Civ-specific units (heroes, unique champions, ...) are only worth naming if the
-		// civilization that can train them is mentioned.
-		if (civs.length == 1 && g_CivData[civs[0]])
-			return sprintf(translate("%(unit)s (%(civ)s)"), {
-				"unit": name,
-				"civ": g_CivData[civs[0]].Name
-			});
-
-		return name;
 	}
 
 	/**
@@ -245,68 +230,70 @@ class UnitBanList {
 	}
 
 	/**
-	 * A class covers dozens of templates ("Champion Infantry" 50 of them, in 14 civilizations),
-	 * so its tooltip lists the units it disables instead of the templates.
-	 *
-	 * @param {string[]} templates
-	 * @returns {string}
-	 */
-	makeClassTooltip(templates) {
-		const names = [];
-		for (const template of templates) {
-			const name = this.unitNames.get(template);
-			if (name && names.indexOf(name) == -1)
-				names.push(name);
-		}
-
-		const shown = names.slice(0, this.MaxTooltipUnits);
-		let tooltip = sprintf(translate("Disables the following units:\n%(units)s"), {
-			"units": shown.join("\n")
-		});
-
-		if (shown.length < names.length)
-			tooltip += "\n" + sprintf(translate("... and %(count)s more."), {
-				"count": names.length - shown.length
-			});
-
-		return tooltip;
-	}
-
-	/**
 	 * The entries that undo the given disabled templates.
 	 *
-	 * An entry is listed when all of its templates are disabled, so that a class, or the three
-	 * ranks of a unit, are enabled again with one click. Templates that no entry covers
-	 * completely - set by a scenario map, or by an older version of this mod - are grouped by
-	 * the unit they belong to, or listed as they are.
+	 * An entry is listed when all of its templates are disabled, so that a class is enabled
+	 * again with one click. The group carries the disabled templates it covers, because those
+	 * are what has to be removed from the setting - they differ from its own templates when the
+	 * setting was written by a version of this mod that stored "{civ}" templates. Templates that
+	 * no entry covers completely - set by a scenario map, or by an older version of this mod -
+	 * are grouped by the class they belong to, marked as partly disabled, or listed as they are.
 	 *
 	 * @param {string[]} templates
-	 * @returns {{name: string, templates: string[], isClass: boolean}[]}
+	 * @returns {{name: string, templates: string[], disabled: string[]}[]}
 	 */
 	reenableEntries(templates) {
-		const disabled = new Set(templates);
-		const entries = this.entries.filter(entry => entry.templates.every(template => disabled.has(template)));
+		const disabled = new Set(templates.map(template => this.canonicalTemplate(template)));
+		const listed = new Map();
+		const listedCanonical = new Map();
+		for (let index = 0; index < this.entries.length; ++index) {
+			if (!this.entries[index].templates
+				.every(template => disabled.has(this.canonicalTemplate(template))))
+				continue;
 
-		const covered = new Set();
-		for (const entry of entries)
-			for (const template of entry.templates)
-				covered.add(template);
+			listed.set(index, {
+				"name": this.entries[index].name,
+				"templates": this.entries[index].templates,
+				"disabled": []
+			});
+
+			// The class a disabled template is offered under, when several cover it.
+			for (const template of this.entries[index].templates) {
+				const canonical = this.canonicalTemplate(template);
+				if (!listedCanonical.has(canonical))
+					listedCanonical.set(canonical, index);
+			}
+		}
 
 		const groups = new Map();
 		for (const template of templates) {
-			if (covered.has(template))
+			const canonical = this.canonicalTemplate(template);
+			const listedIndex = listedCanonical.get(canonical);
+			if (listedIndex !== undefined) {
+				listed.get(listedIndex).disabled.push(template);
 				continue;
+			}
 
-			const index = this.reverse.get(template);
-			const name = index === undefined ? template : this.entries[index].name;
+			const index = this.reverse.get(canonical);
+			const name = index === undefined ?
+				template :
+				sprintf(translate("%(class)s (partly disabled)"), {
+					"class": this.entries[index].name
+				});
 
 			if (!groups.has(name))
-				groups.set(name, { "name": name, "templates": [], "isClass": false });
+				groups.set(name, { "name": name, "templates": [], "disabled": [] });
 
 			groups.get(name).templates.push(template);
+			groups.get(name).disabled.push(template);
 		}
 
-		return entries.concat(Array.from(groups.values()));
+		// A class can be covered by the disabled list without holding anything of its own, when
+		// the units it shares with another class are disabled: enabling it must not offer an
+		// entry that removes nothing.
+		return Array.from(listed.values())
+			.filter(group => group.disabled.length)
+			.concat(Array.from(groups.values()));
 	}
 }
 

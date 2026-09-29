@@ -44,6 +44,8 @@ var g_UnitClassList = [
     { "label": "All Siege Units", "all": ["Siege"] },
     { "label": "All Warships", "all": ["Warship"] },
     { "label": "All Fishing Boats", "all": ["FishingBoat"] },
+    { "label": "All Catafalques", "all": ["Relic"] },
+    { "label": "All War Dogs", "all": ["Dog"] },
 
     // Weapons, across every rank and civilization.
     { "label": "All Spearmen", "all": ["Spearman"] },

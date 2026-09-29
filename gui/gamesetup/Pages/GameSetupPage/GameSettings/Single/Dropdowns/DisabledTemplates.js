@@ -1,12 +1,13 @@
 /**
- * Lets the host disable units, and whole classes of units, for the whole match.
+ * Lets the host disable whole classes of units for the whole match.
  *
- * The first entry of the dropdown is a placeholder that also serves as a summary for players
- * who can't change the setting. The classes come first and are colored (see UnitClasses.js);
- * selecting any other entry disables every template of that class or unit for all players.
- * Entries that are already disabled are colored red.
+ * The first entry of the dropdown is a placeholder: it is the row the control marks as selected,
+ * and it names the disabled classes, so that the marker of the control summarizes the setting -
+ * for the other players too, who can't change it. Selecting it does nothing, which is what makes
+ * it possible to pick the same class twice in a row. Disabled classes are colored red and carry
+ * a bullet, so they are recognizable in the list even where the color is missed.
  *
- * Re-enabling is done with the "Enable Unit" setting.
+ * Re-enabling is done with the "Enable Unit Class" setting.
  */
 GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSettingControlDropdown {
 	constructor(...args) {
@@ -27,23 +28,49 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 	render() {
 		this.setHidden(!this.banList.entries.length);
 
-		const disabled = g_GameSettings.disabledTemplates.templates;
-		const isDisabled = entry =>
-			entry.templates.some(template => disabled.indexOf(template) != -1);
+		const disabled = new Set(g_GameSettings.disabledTemplates.templates
+			.map(template => this.banList.canonicalTemplate(template)));
+		const isDisabled = entry => entry.templates
+			.some(template => disabled.has(this.banList.canonicalTemplate(template)));
 
-		this.dropdown.list = [sprintf(this.SummaryCaption, { "count": disabled.length })]
-			.concat(this.banList.entries.map(entry => {
-				if (isDisabled(entry))
-					return setStringTags(entry.name, this.DisabledTags);
-
-				return entry.isClass ? setStringTags(entry.name, this.ClassTags) : entry.name;
-			}));
+		this.dropdown.list = [this.makeSummaryCaption(disabled)]
+			.concat(this.banList.entries.map(entry =>
+				isDisabled(entry) ?
+					setStringTags(this.DisabledMarker + entry.name, this.DisabledTags) :
+					entry.name));
 
 		// The placeholder is identified by an empty value, so that setSelectedValue selects it.
 		this.dropdown.list_data = [""].concat(this.banList.entries.map(entry => entry.name));
 
-		// Always reselect the placeholder, so that the same entry can be selected twice in a row.
+		// Always reselect the placeholder, so that the same class can be picked twice in a row.
 		this.setSelectedValue("");
+	}
+
+	/**
+	 * The caption of the placeholder row, hence of the row the control shows as selected: it
+	 * names the disabled classes, because a dropdown can mark one row only and this is the one
+	 * that carries the state.
+	 *
+	 * @param {Set<string>} disabled - Disabled templates, in their "{civ}" form.
+	 * @returns {string}
+	 */
+	makeSummaryCaption(disabled) {
+		const names = this.banList.entries
+			.filter(entry => entry.templates
+				.every(template => disabled.has(this.banList.canonicalTemplate(template))))
+			.map(entry => entry.name);
+
+		const shown = names.slice(0, this.MaxSummaryNames);
+		if (!shown.length)
+			return this.NothingDisabledCaption;
+
+		let caption = sprintf(this.DisabledCaption, { "classes": shown.join(", ") });
+		if (shown.length < names.length)
+			caption += " " + sprintf(this.MoreDisabledCaption, {
+				"count": names.length - shown.length
+			});
+
+		return caption;
 	}
 
 	getAutocompleteEntries() {
@@ -61,21 +88,32 @@ GameSettingControls.DisabledTemplates = class DisabledTemplates extends GameSett
 };
 
 GameSettingControls.DisabledTemplates.prototype.TitleCaption =
-	translate("Disable Unit");
+	translate("Disable Unit Class");
 
 GameSettingControls.DisabledTemplates.prototype.Tooltip =
-	translate("Select a unit, or a class of units, to disable it for every player. Disabled units can't be trained or built. Already disabled entries are shown in red.");
+	translate("Select a class of units to disable it for every player. Disabled units can't be trained or built. Already disabled classes are shown in red.");
 
-GameSettingControls.DisabledTemplates.prototype.SummaryCaption =
-	translate("Select a unit or class to disable (%(count)s disabled)");
+GameSettingControls.DisabledTemplates.prototype.NothingDisabledCaption =
+	translate("Nothing disabled");
+
+GameSettingControls.DisabledTemplates.prototype.DisabledCaption =
+	translate("Disabled: %(classes)s");
+
+GameSettingControls.DisabledTemplates.prototype.MoreDisabledCaption =
+	translate("and %(count)s more");
+
+/**
+ * Prefix of a disabled entry, so that it is recognizable without relying on its color. The game
+ * uses the same bullet in its own interface, so every shipped font has it.
+ */
+GameSettingControls.DisabledTemplates.prototype.DisabledMarker = "\u2022 ";
+
+/**
+ * Maximum number of class names in the summary row.
+ */
+GameSettingControls.DisabledTemplates.prototype.MaxSummaryNames = 2;
 
 GameSettingControls.DisabledTemplates.prototype.DisabledTags =
 	{ "color": "red" };
-
-/**
- * Classes are the coarse entries, colored so that they stand out from the individual units.
- */
-GameSettingControls.DisabledTemplates.prototype.ClassTags =
-	{ "color": "orange" };
 
 GameSettingControls.DisabledTemplates.prototype.AutocompleteOrder = 0;
