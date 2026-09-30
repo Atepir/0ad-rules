@@ -38,28 +38,39 @@ function InitGame(settings) {
 	}
 
 	const cmpAIManager = Engine.QueryInterface(SYSTEM_ENTITY, IID_AIManager);
+
+	// MOD: rules - a mod that re-registers the Player component with a copy of it (autociv does
+	// that for other components) leaves every player without the game's API, so the missing parts
+	// are reported once for the match instead of once for each of its players.
+	let rulesWarnedAboutPlayerApi = false;
+
 	for (let i = 0; i < settings.PlayerData.length; ++i) {
 		const cmpPlayer = QueryPlayerIDInterface(i);
 
-		// MOD: rules - this is the game's own call. A mod that re-registers the Player component
-		// with a copy of it (autociv does that for other components) can leave the component
-		// without the game's API, and then this call aborts the whole match start. Report it and
-		// carry on, so that mod shows up as its own problem instead of as a failure of this one.
+		// MOD: rules - this is the game's own call. Without the guard it would abort the whole
+		// match start, which hides the mod that caused it behind this one's name.
 		if (cmpPlayer.SetCheatsEnabled)
 			cmpPlayer.SetCheatsEnabled(!!settings.CheatsEnabled);
-		else
-			warn("rules: the Player component has no SetCheatsEnabled, so this match runs with a " +
-				"Player component that isn't the game's; a mod that re-registers that component " +
-				"is the usual cause.");
+		else if (!rulesWarnedAboutPlayerApi) {
+			rulesWarnedAboutPlayerApi = true;
+			warn("rules: this match runs with a Player component that isn't the game's, so cheat " +
+				"settings can't be applied. A mod that re-registers that component is the usual " +
+				"cause.");
+		}
 
 		// MOD: rules - apply the templates the host disabled in the match setup.
 		// The templates may contain the "{civ}" placeholder, which is expanded for each player
 		// when the MT_InitGame message below is broadcast (see Player.prototype.OnGlobalInitGame).
 		// Templates disabled by other settings (e.g. the spy of "Disable Spies") are preserved.
 		if (settings.DisabledTemplates && settings.DisabledTemplates.length) {
-			if (!cmpPlayer.GetDisabledTemplates || !cmpPlayer.SetDisabledTemplates)
-				warn("rules: the Player component has no disabled-template API, so the classes " +
-					"of units the host disabled are not applied.");
+			if (!cmpPlayer.GetDisabledTemplates || !cmpPlayer.SetDisabledTemplates) {
+				if (!rulesWarnedAboutPlayerApi) {
+					rulesWarnedAboutPlayerApi = true;
+					warn("rules: this match runs with a Player component that isn't the game's, so " +
+						"the classes of units the host disabled are not applied. A mod that " +
+						"re-registers that component is the usual cause.");
+				}
+			}
 			else {
 				const disabledTemplates = cmpPlayer.GetDisabledTemplates();
 				const disabled = Object.keys(disabledTemplates).filter(template => disabledTemplates[template]);
