@@ -5,3 +5,6 @@ output/
 
 # Scratch directory
 .dist/
+
+# Bytecode of the tools/ helpers.
+__pycache__/

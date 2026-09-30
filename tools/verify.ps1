@@ -9,7 +9,9 @@
     2. Runs tools/verify-unitbanlist.js on that dump, which replays the mod's unit grouping and
        its class matching, and checks the invariants the Match Setup and the simulation rely on.
     3. Runs tools/verify-matchsettingslayout.js, which replays the Match Setup layout repair.
-    4. Syntax-checks every JavaScript file of the mod.
+    4. Runs tools/verify-disabled-researches.py, which works out from the same game data which
+       researches the mod hides when a class of units is disabled.
+    5. Syntax-checks every JavaScript file of the mod.
 
 .PARAMETER GameDirectory
     The 0 A.D. installation directory, i.e. the folder containing "binaries".
@@ -53,7 +55,15 @@ if ($LASTEXITCODE -ne 0)
     throw "verify-matchsettingslayout.js failed."
 }
 
-# 4) Syntax-check the mod.
+# 4) Check the researches hidden with the disabled classes.
+Write-Output ""
+& python (Join-Path $root "tools\verify-disabled-researches.py") $zipPath
+if ($LASTEXITCODE -ne 0)
+{
+    throw "verify-disabled-researches.py failed."
+}
+
+# 5) Syntax-check the mod.
 Write-Output ""
 Write-Output "Syntax check:"
 $failed = 0

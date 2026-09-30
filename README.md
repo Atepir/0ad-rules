@@ -44,7 +44,7 @@ summary of how many units are disabled.
 | `.../Single/Dropdowns/DisabledTemplates.js` | The "Disable Unit Class" dropdown. |
 | `.../Single/Dropdowns/EnabledTemplates.js` | The "Enable Unit Class" dropdown. |
 | `.../Single/Dropdowns/MatchSettingsLayout.js` | Adds both controls to the tab that holds the player settings of the *effective* Match Setup layout, and drops settings of it that this game version doesn't have (see [Compatibility](#compatibility)). |
-| `simulation/helpers/InitGame.js` | *Overrides* the vanilla `InitGame` to apply the list with `ICmpPlayer::SetDisabledTemplates`. |
+| `simulation/helpers/InitGame.js` | *Overrides* the vanilla `InitGame` to apply the list with `ICmpPlayer::SetDisabledTemplates` and to hide the researches of the disabled classes (see [Researches](#researches)). |
 
 The engine already knows how to enforce a disabled template:
 
@@ -91,13 +91,54 @@ Templates of unplayable civilizations (`pirates`) and civ-independent scenario/c
 (`units/plane`, `units/merc_thorakites`, ...) are ignored, as they can't be trained. Hovering a
 class shows up to six of the templates it disables.
 
+## Researches
+
+A research that has nothing left to unlock or improve disappears with the units it is for: no
+button in the research panel, and neither a player nor the AI can start it. Two relations are
+read from the game data when the match starts:
+
+* **what a research unlocks** - the units require it in `Identity/Requirements/Techs` of their
+template, and the templates of the unit base classes pass it on, so `unlock_champion_cavalry`
+gives the champion cavalry;
+* **what a research improves** - the `affects` of the technology and of its `modifications`,
+where a space separates classes that are all required and a leading `!` or `-` excludes one
+(`nisean_horses` affects `Champion Cavalry Spearman`, `immortals` affects `Immortal`).
+
+A research is hidden when *every* unit it unlocks or improves is disabled - anything else would
+take away a research the match still needs:
+
+| Disabled | Hidden researches |
+| --- | --- |
+| *Immortals* | `immortals` |
+| *Champion Cavalry* | `unlock_champion_cavalry`, `unlock_champion_chariots`, `nisean_horses` |
+| *Fanatics* | none |
+| all three | the four above |
+
+`unlock_champion_infantry` survives every combination, because the other 17 civilizations still
+train champions with it, and so does `nisean_horses` as long as the champion cavalry is in the
+match. `unlock_champion_chariots` goes with the champion cavalry because the Britons', the
+Mauryans', the Persians', the Seleucids' and the Han chariots are all champion cavalry, so that
+research has nothing left to unlock either. A technology the game data doesn't tie to a unit is
+never hidden.
+
+The panel is filled from `Researcher.GetTechnologiesList()`, where the game itself hides a
+research by returning `undefined` for its slot, and every research goes through
+`TechnologyManager.CanResearch()`, which the AI uses too. The mod patches both once per match and
+reports what it removed:
+
+```
+rules: 4 research(es) hidden because the classes of units they unlock or improve are disabled: immortals, nisean_horses, unlock_champion_cavalry, unlock_champion_chariots
+```
+
 ## Limitations
 
 * Only the three classes above can be disabled: neither a single unit nor any other class can be
   banned on its own. Disable one class, or disable several and re-enable the ones the match
   should keep.
 * Disabling a class doesn't remove units that are already on the map or spawned by a scenario.
-* Technologies that unlock or improve a disabled unit remain available.
+* Researches are hidden for the whole match, not per civilization: with the *Fanatics* disabled,
+  `unlock_champion_infantry` stays because the other civilizations still train champions with it,
+  so the Gauls keep a research that unlocks nothing of theirs anymore.
 * A class isn't tied to a civilization: *Champion Cavalry* disables the champion cavalry of every
   civilization, not just of one.
 * The setting is meant for the host; clients need the mod to join a match that uses it, so all
@@ -231,6 +272,12 @@ The mod was checked against a 0.28.0 installation:
 * `tools/verify-matchsettingslayout.js` runs `MatchSettingsLayout.js` against the vanilla layout,
   against the stale `feldmap` layout and against the layout this mod used to ship, and checks that
   the result never lists a setting that has no control and always contains both settings.
+* `tools/verify-disabled-researches.py` works out on its own, from `public.zip`, which researches
+  are hidden for each disabled class, and checks the promises of [Researches](#researches): a
+  research is only hidden when every unit it unlocks or improves is disabled, no hidden research
+  concerns a unit that is still available, `immortals` goes with the *Immortals* while
+  `unlock_champion_infantry` and `nisean_horses` stay, and disabling the *Champion Cavalry* leaves
+  the Immortals alone.
 * A headless `pyrogenesis -autostart="random/mainland" -autostart-nonvisual` run with the mod
   enabled loads the mod, runs the modified `InitGame` and simulates a match without errors.
   Instrumenting `InitGame` temporarily confirmed that the setting reaches every player
@@ -268,6 +315,13 @@ The mod was checked against a 0.28.0 installation:
 
   ```
   node tools/verify-matchsettingslayout.js
+  ```
+
+* `tools/verify-disabled-researches.py` replays the research hiding from the same `public.zip`,
+  with its own reader for the unit templates and the technologies:
+
+  ```
+  python tools/verify-disabled-researches.py <public.zip>
   ```
 
 * `tools/verify-workflow.py` parses `.github/workflows/build-pyromod.yml` and checks that the mod
