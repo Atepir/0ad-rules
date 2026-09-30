@@ -51,6 +51,18 @@ class UnitBanList {
 	}
 
 	/**
+	 * Reports a problem of the unit list to the maintainer of this mod, and to nobody else: the
+	 * mod ends up in other people's installs, where a game update or another mod is the cause,
+	 * and the player can do nothing about it. Set g_RulesReport to true to see the messages.
+	 *
+	 * @param {string} message
+	 */
+	report(message) {
+		if (typeof g_RulesReport != "undefined" && g_RulesReport)
+			warn(message);
+	}
+
+	/**
 	 * Fills this.entries and this.reverse.
 	 */
 	build() {
@@ -66,7 +78,7 @@ class UnitBanList {
 				// aren't tied to a civilization and aren't trainable, so disabling them would
 				// have no effect.
 				if (parts.length > 2)
-					warn("rules: ignoring unexpected unit template '" + path + "'.");
+					this.report("rules: ignoring unexpected unit template '" + path + "'.");
 				continue;
 			}
 
@@ -169,7 +181,7 @@ class UnitBanList {
 			visibleClasses = template && template.Identity && template.Identity.VisibleClasses;
 		}
 		catch (error) {
-			warn("rules: couldn't read the template '" + path + "': " + error);
+			this.report("rules: couldn't read the template '" + path + "': " + error);
 			return new Set();
 		}
 
@@ -189,7 +201,7 @@ class UnitBanList {
 			.filter(unit => unitMatchesClass(unitClass, unit.filename, unit.classes));
 
 		if (!matching.length) {
-			warn("rules: the '" + unitClass.label + "' unit class matches no unit.");
+			this.report("rules: the '" + unitClass.label + "' unit class matches no unit.");
 			return undefined;
 		}
 

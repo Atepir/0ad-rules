@@ -59,6 +59,9 @@ const stubs = `
 	var g_ListFilesResult = ${JSON.stringify(dumpedPaths)};
 	var g_EngineTemplates = ${JSON.stringify(engineTemplates)};
 	var g_Warnings = [];
+	// The list only reports when a maintainer turned the reporting on, so the run below sees
+	// everything the game itself would not show a player.
+	var g_RulesReport = true;
 
 	function listFiles(directory, extension, recurse) {
 		if (directory != "simulation/templates/units/" || extension != ".xml" || !recurse)

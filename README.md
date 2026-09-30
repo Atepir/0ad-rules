@@ -84,8 +84,8 @@ ordinary champion infantry of every other civilization, so those keep theirs.
 every template inherits `Identity/VisibleClasses` from its parents and mixins, which
 `Engine.GetTemplate().Identity.VisibleClasses._string` resolves - the same source the game's own
 Reference page reads. A game update that retags a unit therefore moves it between the classes
-here without this mod being touched, and a class that stops matching any unit is reported in the
-game log (`rules: the '...' unit class matches no unit.`).
+here without this mod being touched, and a class that stops matching any unit leaves the list
+silently instead of showing a broken entry.
 
 Templates of unplayable civilizations (`pirates`) and civ-independent scenario/cheat units
 (`units/plane`, `units/merc_thorakites`, ...) are ignored, as they can't be trained. Hovering a
@@ -123,12 +123,25 @@ never hidden.
 
 The panel is filled from `Researcher.GetTechnologiesList()`, where the game itself hides a
 research by returning `undefined` for its slot, and every research goes through
-`TechnologyManager.CanResearch()`, which the AI uses too. The mod patches both once per match and
-reports what it removed:
+`TechnologyManager.CanResearch()`, which the AI uses too. The mod patches both once per match.
+
+## The mod says nothing to players
+
+Every problem this mod can run into is caused by something outside it - a game update that moved
+a template, another mod that re-registers an engine component - and nothing the player of a match
+can do about it. Reporting them would only put messages in other people's logs and on their
+screens, so the mod keeps quiet and repairs what it can.
+
+The reports are still there, behind one switch: set `g_RulesReport` to true and they show up in
+the game log again, which is what the offline checks do:
 
 ```
-rules: 4 research(es) hidden because the classes of units they unlock or improve are disabled: immortals, nisean_horses, unlock_champion_cavalry, unlock_champion_chariots
+rules: 3 research(es) hidden because the classes of units they unlock or improve are disabled: nisean_horses, unlock_champion_cavalry, unlock_champion_chariots
 ```
+
+In the simulation the switch is the `g_RulesReport` at the end of `simulation/helpers/InitGame.js`,
+and in the Match Setup it is the one `tools/verify-matchsettingslayout.js` and
+`tools/verify-unitbanlist.js` set in their stubs.
 
 ## Limitations
 
@@ -240,7 +253,7 @@ because its `Player` tab still lists `PopulationCapType`, a control that 0.28 re
 This mod therefore doesn't ship that file. `MatchSettingsLayout.js` instead repairs the layout
 that ended up in use right before it is laid out, which works with any copy:
 
-* settings that have no control are dropped, with a warning in the game log,
+* settings that have no control are dropped, without telling the players about it,
 * `DisabledTemplates` and `EnabledTemplates` are inserted into the tab that holds the player
   settings.
 

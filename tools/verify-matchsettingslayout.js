@@ -33,15 +33,17 @@ const check = (condition, message) => {
  * @param {string[]} controlNames - Names that have a control.
  * @param {number} updateCalls - How often GameSettingsPanel.updateSize() runs.
  */
-function runHelper(layout, controlNames, updateCalls = 1) {
+function runHelper(layout, controlNames, updateCalls = 1, report = true) {
     const gameSettingControls = {};
     for (const name of controlNames)
         gameSettingControls[name] = { category: -1 };
 
-    // The stubs stand in for the engine globals and for the vanilla class the helper hooks.
+    // The stubs stand in for the engine globals and for the vanilla class the helper hooks. The
+    // helper only reports when a maintainer turned the reporting on, which is what "report" is.
     const stubs = `
 		var g_GameSettingsLayout = ${JSON.stringify(layout)};
 		var g_Warnings = [];
+		var g_RulesReport = ${report};
 		var g_UpdateCalls = 0;
 		function warn(message) { g_Warnings.push(message); }
 		class GameSettingControlManager
@@ -208,6 +210,19 @@ const settingsOf = (layout, tabIndex) => layout[tabIndex].settings;
         "without a layout update the stale setting must still be listed");
     check(result.controls.DisabledTemplates.category == -1,
         "without a layout update the controls must still be in no tab");
+}
+
+// ---------------------------------------- players are never shown what the repair reports
+{
+    const reported = runHelper(staleLayout, staleControls, 1, true);
+    const silent = runHelper(staleLayout, staleControls, 1, false);
+
+    check(reported.warnings.length == 1,
+        "a maintainer who asked for the reports must get them: " + reported.warnings);
+    check(silent.warnings.length == 0,
+        "a match must report nothing to its players: " + silent.warnings);
+    check(JSON.stringify(silent.layout) == JSON.stringify(reported.layout),
+        "reporting must not change what the repair does");
 }
 
 // ----------------------------------------------------- the file that caused all of this is gone

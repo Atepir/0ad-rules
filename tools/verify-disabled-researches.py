@@ -29,8 +29,24 @@ CLASSES = [
 ]
 
 CIVS = [
-    "athen", "brit", "cart", "celt", "gaul", "germ", "han", "iber", "kush", "mace", "maur",
-    "pers", "ptol", "rome", "scyth", "sele", "spart", "theb",
+    "athen",
+    "brit",
+    "cart",
+    "celt",
+    "gaul",
+    "germ",
+    "han",
+    "iber",
+    "kush",
+    "mace",
+    "maur",
+    "pers",
+    "ptol",
+    "rome",
+    "scyth",
+    "sele",
+    "spart",
+    "theb",
 ]
 
 failures = []
@@ -52,7 +68,9 @@ def read(archive, name):
 def load_dumper():
     """The tool that already walks the parent chains of the templates, so the classes of a unit
     are resolved in exactly one place."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dump-unit-classes.py")
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "dump-unit-classes.py"
+    )
     spec = importlib.util.spec_from_file_location("dump_unit_classes", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -117,7 +135,7 @@ def load_units(templates):
             "classes": templates.classes(name),
             "unlocks": template_requirements(templates, name),
             "civ": parts[3],
-            "file": parts[4][:-len(".xml")],
+            "file": parts[4][: -len(".xml")],
         }
 
     return units
@@ -128,7 +146,7 @@ def read_technologies(archive):
     for name in archive.namelist():
         if not re.match(r"simulation/data/technologies/[^/]+\.json$", name):
             continue
-        technologies[name.rsplit("/", 1)[-1][:-len(".json")]] = read(archive, name)
+        technologies[name.rsplit("/", 1)[-1][: -len(".json")]] = read(archive, name)
     return technologies
 
 
@@ -198,9 +216,15 @@ def main():
         units = load_units(dumper.Templates(sys.argv[1]))
         technologies = read_technologies(archive)
 
-    classes = {name: {"classes": set(template["classes"]), "unlocks": template["unlocks"],
-                      "civ": template["civ"], "file": template["file"]}
-               for name, template in units.items()}
+    classes = {
+        name: {
+            "classes": set(template["classes"]),
+            "unlocks": template["unlocks"],
+            "civ": template["civ"],
+            "file": template["file"],
+        }
+        for name, template in units.items()
+    }
 
     if not classes:
         fail("no unit template read from %s" % sys.argv[1])
@@ -223,8 +247,10 @@ def main():
                 if affects and matches(set(template["classes"]), affects):
                     concerned.add(unit)
             if not concerned <= disabled:
-                fail("%s is hidden while %s is still trainable" %
-                     (name, sorted(concerned - disabled)[0]))
+                fail(
+                    "%s is hidden while %s is still trainable"
+                    % (name, sorted(concerned - disabled)[0])
+                )
             if not concerned:
                 fail("%s is hidden but improves and unlocks nothing" % name)
 
@@ -232,9 +258,16 @@ def main():
     hidden, _ = hidden_researches(classes, technologies, ["Immortals"])
     if "immortals" not in hidden:
         fail("the Immortals research is not hidden when the Immortals are disabled")
-    for name in ("unlock_champion_infantry", "unlock_champion_cavalry", "nisean_horses"):
+    for name in (
+        "unlock_champion_infantry",
+        "unlock_champion_cavalry",
+        "nisean_horses",
+    ):
         if name in hidden:
-            fail("%s is hidden while the units it unlocks or improves are available" % name)
+            fail(
+                "%s is hidden while the units it unlocks or improves are available"
+                % name
+            )
 
     hidden, _ = hidden_researches(classes, technologies, ["Champion Cavalry"])
     for name in ("unlock_champion_cavalry", "nisean_horses"):
@@ -254,15 +287,30 @@ def main():
 
     print("unit templates read: %d" % len(classes))
     print("technologies read:   %d" % len(technologies))
-    print("templates disabled:  %s -> %d, %s -> %d, %s -> %d" % (
-        labels[0], len(disabled_templates(classes, [labels[0]])),
-        labels[1], len(disabled_templates(classes, [labels[1]])),
-        labels[2], len(disabled_templates(classes, [labels[2]]))))
-    print("researches hidden:   all -> %s" % ", ".join(sorted(
-        hidden_researches(classes, technologies, labels)[0])))
+    print(
+        "templates disabled:  %s -> %d, %s -> %d, %s -> %d"
+        % (
+            labels[0],
+            len(disabled_templates(classes, [labels[0]])),
+            labels[1],
+            len(disabled_templates(classes, [labels[1]])),
+            labels[2],
+            len(disabled_templates(classes, [labels[2]])),
+        )
+    )
+    print(
+        "researches hidden:   all -> %s"
+        % ", ".join(sorted(hidden_researches(classes, technologies, labels)[0]))
+    )
     for label in labels:
-        print("                     %s -> %s" % (label, ", ".join(sorted(
-            hidden_researches(classes, technologies, [label])[0])) or "-"))
+        print(
+            "                     %s -> %s"
+            % (
+                label,
+                ", ".join(sorted(hidden_researches(classes, technologies, [label])[0]))
+                or "-",
+            )
+        )
 
     if failures:
         print("\nfailures:")

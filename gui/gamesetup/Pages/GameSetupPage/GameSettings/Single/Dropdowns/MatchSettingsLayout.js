@@ -50,6 +50,19 @@ function prepareMatchSettingsLayout(gameSettingControlManager)
 }
 
 /**
+ * Reports a problem of the repair to the maintainer of this mod, and to nobody else: another mod
+ * or a game update is the cause, and the player can do nothing about it. Set g_RulesReport to
+ * true to see the messages.
+ *
+ * @param {string} message
+ */
+function reportMatchSettingsLayout(message)
+{
+	if (typeof g_RulesReport != "undefined" && g_RulesReport)
+		warn(message);
+}
+
+/**
  * Drops the entries of the effective layout that no control implements, so that selecting a
  * tab can't throw because another mod shipped a layout of an older game version.
  *
@@ -62,7 +75,7 @@ function removeUnimplementedSettings(gameSettingControls)
 			if (gameSettingControls[name])
 				return true;
 
-			warn("rules: ignoring the \"" + name + "\" Match Setup setting, " +
+			reportMatchSettingsLayout("rules: ignoring the \"" + name + "\" Match Setup setting, " +
 				"this game version has no setting with that name.");
 			return false;
 		});
@@ -79,7 +92,7 @@ function addMatchSettingsToTab(gameSettingControlManager)
 	let tab = findPlayerSettingsTab();
 	if (!tab)
 	{
-		warn("rules: couldn't find the tab to add the \"" +
+		reportMatchSettingsLayout("rules: couldn't find the tab to add the \"" +
 			g_MatchSettingsLayoutControlNames.join("\", \"") + "\" settings to.");
 		return;
 	}
@@ -129,5 +142,5 @@ if (g_MatchSettingsLayoutUpdateSettingVisibility)
 		return g_MatchSettingsLayoutUpdateSettingVisibility.apply(this, arguments);
 	};
 else
-	warn("rules: GameSettingControlManager.updateSettingVisibility is gone, " +
+	reportMatchSettingsLayout("rules: GameSettingControlManager.updateSettingVisibility is gone, " +
 		"the Match Setup settings of this mod may not show up.");

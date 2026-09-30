@@ -47,7 +47,7 @@ function InitGame(settings) {
 	// MOD: rules - a mod that re-registers the Player component with a copy of it (autociv does
 	// that for other components) leaves every player without the game's API, so the missing parts
 	// are reported once for the match instead of once for each of its players.
-	let rulesWarnedAboutPlayerApi = false;
+	let rulesReportedPlayerApi = false;
 
 	for (let i = 0; i < settings.PlayerData.length; ++i) {
 		const cmpPlayer = QueryPlayerIDInterface(i);
@@ -56,11 +56,11 @@ function InitGame(settings) {
 		// match start, which hides the mod that caused it behind this one's name.
 		if (cmpPlayer.SetCheatsEnabled)
 			cmpPlayer.SetCheatsEnabled(!!settings.CheatsEnabled);
-		else if (!rulesWarnedAboutPlayerApi) {
-			rulesWarnedAboutPlayerApi = true;
-			warn("rules: this match runs with a Player component that isn't the game's, so cheat " +
-				"settings can't be applied. A mod that re-registers that component is the usual " +
-				"cause.");
+		else if (!rulesReportedPlayerApi) {
+			rulesReportedPlayerApi = true;
+			RulesReport("rules: this match runs with a Player component that isn't the game's, so " +
+				"cheat settings can't be applied. A mod that re-registers that component is the " +
+				"usual cause.");
 		}
 
 		// MOD: rules - apply the templates the host disabled in the match setup.
@@ -69,11 +69,11 @@ function InitGame(settings) {
 		// Templates disabled by other settings (e.g. the spy of "Disable Spies") are preserved.
 		if (settings.DisabledTemplates && settings.DisabledTemplates.length) {
 			if (!cmpPlayer.GetDisabledTemplates || !cmpPlayer.SetDisabledTemplates) {
-				if (!rulesWarnedAboutPlayerApi) {
-					rulesWarnedAboutPlayerApi = true;
-					warn("rules: this match runs with a Player component that isn't the game's, so " +
-						"the classes of units the host disabled are not applied. A mod that " +
-						"re-registers that component is the usual cause.");
+				if (!rulesReportedPlayerApi) {
+					rulesReportedPlayerApi = true;
+					RulesReport("rules: this match runs with a Player component that isn't the " +
+						"game's, so the classes of units the host disabled are not applied. A mod " +
+						"that re-registers that component is the usual cause.");
 				}
 			}
 			else {
@@ -133,8 +133,7 @@ Engine.RegisterGlobal("InitGame", InitGame);
  * @param {Object} settings - The game attributes of the match.
  * @returns {Set<string>}
  */
-function RulesDisabledTemplates(settings)
-{
+function RulesDisabledTemplates(settings) {
 	const civilizations = settings.PlayerData
 		.map(data => data && data.Civ)
 		.filter((civ, index, all) => civ && all.indexOf(civ) == index);
@@ -160,12 +159,10 @@ function RulesDisabledTemplates(settings)
  * @param {Object} settings
  * @returns {Map<string, {classes: Set<string>, unlocks: string[]}>}
  */
-function RulesMatchUnitTemplates(settings)
-{
+function RulesMatchUnitTemplates(settings) {
 	const units = new Map();
 
-	for (const path of listFiles("simulation/templates/units/", ".xml", true))
-	{
+	for (const path of listFiles("simulation/templates/units/", ".xml", true)) {
 		// By splitting on both separators the scan also works if the VFS returns
 		// platform-dependent paths.
 		const parts = path.split(/[\\/]/);
@@ -201,16 +198,13 @@ function RulesMatchUnitTemplates(settings)
  * @param {string[]} queries
  * @returns {boolean}
  */
-function RulesMatchesAffects(classes, queries)
-{
+function RulesMatchesAffects(classes, queries) {
 	for (const query of queries)
-		for (const token of query.split(" "))
-		{
+		for (const token of query.split(" ")) {
 			if (!token)
 				continue;
 
-			if (token[0] == "!" || token[0] == "-")
-			{
+			if (token[0] == "!" || token[0] == "-") {
 				if (classes.has(token.slice(1)))
 					return false;
 			}
@@ -228,8 +222,7 @@ function RulesMatchesAffects(classes, queries)
  * @param {Object} settings
  * @returns {Set<string>}
  */
-function RulesHiddenResearches(settings)
-{
+function RulesHiddenResearches(settings) {
 	const hidden = new Set();
 	if (!settings.DisabledTemplates || !settings.DisabledTemplates.length)
 		return hidden;
@@ -240,8 +233,7 @@ function RulesHiddenResearches(settings)
 		return hidden;
 
 	const technologies = TechnologyTemplates.GetAll();
-	for (const name in technologies)
-	{
+	for (const name in technologies) {
 		const technology = technologies[name];
 
 		// What the research is for: the units it improves, and the ones it unlocks.
@@ -280,8 +272,7 @@ function RulesHiddenResearches(settings)
  *
  * @param {Object} settings
  */
-function RulesHideResearches(settings)
-{
+function RulesHideResearches(settings) {
 	if (g_RulesHiddenResearches)
 		return;
 
@@ -290,22 +281,38 @@ function RulesHideResearches(settings)
 		return;
 
 	const listTechnologies = Researcher.prototype.GetTechnologiesList;
-	Researcher.prototype.GetTechnologiesList = function()
-	{
+	Researcher.prototype.GetTechnologiesList = function () {
 		return listTechnologies.call(this).map(name =>
 			g_RulesHiddenResearches.has(name) ? undefined : name);
 	};
 
 	const canResearch = TechnologyManager.prototype.CanResearch;
-	TechnologyManager.prototype.CanResearch = function(name)
-	{
+	TechnologyManager.prototype.CanResearch = function (name) {
 		return !g_RulesHiddenResearches.has(name) && canResearch.call(this, name);
 	};
 
-	warn("rules: " + g_RulesHiddenResearches.size + " research(es) hidden because the classes of " +
-		"units they unlock or improve are disabled: " +
+	RulesReport("rules: " + g_RulesHiddenResearches.size + " research(es) hidden because the " +
+		"classes of units they unlock or improve are disabled: " +
 		Array.from(g_RulesHiddenResearches).sort().join(", "));
 }
 
 /** The researches of the disabled classes, worked out when the match starts. */
 let g_RulesHiddenResearches;
+
+/**
+ * Whether RulesReport writes to the game log. Off, so that a match says nothing to its players:
+ * what the mod reports (a game update that moved something, another mod that re-registers a
+ * component) is nothing they can do anything about. A maintainer debugging the mod sets this to
+ * true to get the messages back.
+ */
+let g_RulesReport = false;
+
+/**
+ * Reports something to the maintainer of this mod, and to nobody else.
+ *
+ * @param {string} message
+ */
+function RulesReport(message) {
+	if (g_RulesReport)
+		warn(message);
+}
