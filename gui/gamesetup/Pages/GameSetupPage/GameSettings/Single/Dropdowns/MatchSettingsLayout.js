@@ -38,8 +38,7 @@ var g_MatchSettingsLayoutPrepared = false;
  *
  * @param {GameSettingControlManager} gameSettingControlManager
  */
-function prepareMatchSettingsLayout(gameSettingControlManager)
-{
+function prepareMatchSettingsLayout(gameSettingControlManager) {
 	if (g_MatchSettingsLayoutPrepared)
 		return;
 
@@ -56,8 +55,7 @@ function prepareMatchSettingsLayout(gameSettingControlManager)
  *
  * @param {string} message
  */
-function reportMatchSettingsLayout(message)
-{
+function reportMatchSettingsLayout(message) {
 	if (typeof g_RulesReport != "undefined" && g_RulesReport)
 		warn(message);
 }
@@ -68,8 +66,7 @@ function reportMatchSettingsLayout(message)
  *
  * @param {Object} gameSettingControls - The controls, keyed by name.
  */
-function removeUnimplementedSettings(gameSettingControls)
-{
+function removeUnimplementedSettings(gameSettingControls) {
 	for (let tab of g_GameSettingsLayout)
 		tab.settings = tab.settings.filter(name => {
 			if (gameSettingControls[name])
@@ -87,11 +84,9 @@ function removeUnimplementedSettings(gameSettingControls)
  *
  * @param {GameSettingControlManager} gameSettingControlManager
  */
-function addMatchSettingsToTab(gameSettingControlManager)
-{
+function addMatchSettingsToTab(gameSettingControlManager) {
 	let tab = findPlayerSettingsTab();
-	if (!tab)
-	{
+	if (!tab) {
 		reportMatchSettingsLayout("rules: couldn't find the tab to add the \"" +
 			g_MatchSettingsLayoutControlNames.join("\", \"") + "\" settings to.");
 		return;
@@ -100,8 +95,7 @@ function addMatchSettingsToTab(gameSettingControlManager)
 	// Inserted before the last setting of the tab, hence after the ones of the game and of
 	// any mod that only appends its own.
 	let missing = g_MatchSettingsLayoutControlNames.filter(name => tab.settings.indexOf(name) == -1);
-	if (missing.length)
-	{
+	if (missing.length) {
 		let anchor = g_MatchSettingsLayoutPlayerSettingsNames.find(name => tab.settings.indexOf(name) != -1);
 		tab.settings.splice(tab.settings.indexOf(anchor), 0, ...missing);
 	}
@@ -117,8 +111,7 @@ function addMatchSettingsToTab(gameSettingControlManager)
  * @returns {Object} The tab holding the player settings, or undefined if the effective layout
  *     has none.
  */
-function findPlayerSettingsTab()
-{
+function findPlayerSettingsTab() {
 	for (let name of g_MatchSettingsLayoutPlayerSettingsNames)
 		for (let tab of g_GameSettingsLayout)
 			if (tab.settings.indexOf(name) != -1)
@@ -136,8 +129,7 @@ var g_MatchSettingsLayoutUpdateSettingVisibility =
 	GameSettingControlManager.prototype.updateSettingVisibility;
 
 if (g_MatchSettingsLayoutUpdateSettingVisibility)
-	GameSettingControlManager.prototype.updateSettingVisibility = function()
-	{
+	GameSettingControlManager.prototype.updateSettingVisibility = function () {
 		prepareMatchSettingsLayout(this);
 		return g_MatchSettingsLayoutUpdateSettingVisibility.apply(this, arguments);
 	};
